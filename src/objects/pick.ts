@@ -1,36 +1,35 @@
 
-export const pickAccessor = <T extends object, const K extends readonly (keyof T)[]>
-  (accessor: () => T, keys: K): Pick<T, K[number]> =>
-    Object.defineProperties(
-      {},
-      Object.fromEntries(
-        keys.map(key => [
-          key,
-          {
-            enumerable: true,
-            configurable: true,
-            get: () => {
-              const object = accessor()
-              const value = object[key]
-              return typeof value === 'function' ? value.bind(object) : value
-            },
-          },
-        ])
-      )
-    ) as Pick<T, K[number]>
+import { filterKeys } from './filterKeys'
 
-export const pickObject = <T extends object, const K extends readonly (keyof T)[]>
-  (object: T, keys: K): Pick<T, K[number]> =>
+type KeysOfUnion<T> = T extends unknown ? keyof T : never
+
+type Expand<T> = T extends unknown ? { [K in keyof T]: T[K] } : never
+
+type PickUnion<T, K extends PropertyKey> =
+  T extends unknown ? Expand<Pick<T, Extract<K, keyof T>>> : never
+
+type PickResult<T, K extends PropertyKey> =
+  T extends (...args: infer A) => infer R
+    ? ((...args: A) => R) & PickUnion<T, K>
+    : PickUnion<T, K>
+
+export function pickAccessor<T extends object, const K extends readonly KeysOfUnion<T>[]>(accessor: () => T, keys: K): PickResult<T, K[number]> {
+  const selected = new Set<PropertyKey>(keys)
+  return filterKeys(accessor, key => selected.has(key)) as unknown as PickResult<T, K[number]>
+}
+
+export const pickObject = <T extends object, const K extends readonly KeysOfUnion<T>[]>
+  (object: T, keys: K): PickResult<T, K[number]> =>
     pickAccessor(() => object, keys)
 
 type PickOverload = {
-  <T extends object, const K extends readonly (keyof T)[]>
-    (accessor: () => T, keys: K): Pick<T, K[number]>
-  <T extends object, const K extends readonly (keyof T)[]>
-    (object: T, keys: K): Pick<T, K[number]>
+  <T extends object, const K extends readonly KeysOfUnion<T>[]>
+    (accessor: () => T, keys: K): PickResult<T, K[number]>
+  <T extends object, const K extends readonly KeysOfUnion<T>[]>
+    (object: T, keys: K): PickResult<T, K[number]>
 }
 
 export const pick: PickOverload = (objectOrAccessor: any, keys: readonly PropertyKey[]) =>
-  typeof objectOrAccessor === 'function'
+  typeof objectOrAccessor === 'function' && objectOrAccessor.length === 0
     ? pickAccessor(objectOrAccessor, keys as any)
     : pickObject(objectOrAccessor, keys as any)
