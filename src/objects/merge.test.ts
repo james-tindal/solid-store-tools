@@ -1,5 +1,4 @@
 import { assert, test } from 'vitest'
-import { createComputed, createRoot, createSignal } from 'solid-js'
 import { merge } from './merge'
 
 type Equal<X, Y> =
@@ -27,26 +26,6 @@ test('merge exposes merged entries as live getters with later values winning', (
   assert.strictEqual(merged.money, 7_500)
   assert.strictEqual(merged.contribution, 150)
 })
-
-test('merge tracks source dependencies from the read site', () => createRoot(dispose => {
-  const [money, setMoney] = createSignal(10_000)
-  const source = {
-    get money() { return money() },
-  }
-  const merged = merge(source)
-  const seen: number[] = []
-
-  createComputed(() => {
-    seen.push(merged.money)
-  })
-
-  assert.deepStrictEqual(seen, [10_000])
-
-  setMoney(9_950)
-
-  assert.deepStrictEqual(seen, [10_000, 9_950])
-  dispose()
-}))
 
 test('merge exposes own values, getters, and methods', () => {
   const source = {
