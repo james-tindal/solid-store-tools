@@ -23,10 +23,10 @@ export const pickObject = <T extends object, const K extends readonly KeysOfUnio
     pickAccessor(() => object, keys)
 
 type PickOverload = {
-  <T extends object, const K extends readonly KeysOfUnion<T>[]>
-    (accessor: () => T, keys: K): PickResult<T, K[number]>
-  <T extends object, const K extends readonly KeysOfUnion<T>[]>
-    (object: T, keys: K): PickResult<T, K[number]>
+  <T extends object, const K extends KeysOfUnion<T>>
+    (accessor: () => T, keys: readonly K[]): PickResult<T, K>
+  <T extends object, const K extends KeysOfUnion<T>>
+    (object: T, keys: readonly K[]): PickResult<T, K>
 }
 
 export const pick: PickOverload = (objectOrAccessor: any, keys: readonly PropertyKey[]) =>

@@ -23,10 +23,10 @@ export const omitObject = <T extends object, const K extends readonly KeysOfUnio
     omitAccessor(() => object, keys)
 
 type OmitOverload = {
-  <T extends object, const K extends readonly KeysOfUnion<T>[]>
-    (accessor: () => T, keys: K): OmitResult<T, K[number]>
-  <T extends object, const K extends readonly KeysOfUnion<T>[]>
-    (object: T, keys: K): OmitResult<T, K[number]>
+  <T extends object, const K extends KeysOfUnion<T>>
+    (accessor: () => T, keys: readonly K[]): OmitResult<T, K>
+  <T extends object, const K extends KeysOfUnion<T>>
+    (object: T, keys: readonly K[]): OmitResult<T, K>
 }
 
 export const omit: OmitOverload = (objectOrAccessor: any, keys: readonly PropertyKey[]) =>
