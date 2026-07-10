@@ -1,4 +1,5 @@
 import { assert, test } from 'vitest'
+import { createStore } from 'solid-js/store'
 import { merge } from './merge'
 
 type Equal<X, Y> =
@@ -121,6 +122,29 @@ test('merge accessor descriptors read overridden keys from the winning source', 
   override.value = 4
 
   assert.strictEqual(descriptor!.get!.call(merged), 4)
+})
+
+test('merge proxies remain compatible with Solid store wrapping', () => {
+  const [nestedStore] = createStore({ value: 'initial' })
+  const merged = merge({ nestedStore })
+  const [store, setStore] = createStore({} as { data?: typeof merged })
+
+  assert.doesNotThrow(() => setStore({ data: merged }))
+  assert.doesNotThrow(() => store.data)
+  assert.strictEqual(store.data, merged)
+})
+
+test('merge ownKeys remains valid when a target-owned key overlaps a merged key', () => {
+  const merged = merge({ value: 1 })
+
+  Object.defineProperty(merged, 'value', {
+    configurable: true,
+    enumerable: false,
+    value: 2,
+  })
+
+  assert.doesNotThrow(() => Reflect.ownKeys(merged))
+  assert.deepStrictEqual(Reflect.ownKeys(merged), ['value'])
 })
 
 test('merge exposes own values, getters, and methods', () => {

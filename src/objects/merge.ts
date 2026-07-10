@@ -48,7 +48,7 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
     return value
   }
 
-  return new Proxy({}, {
+  return new Proxy(Object.create(mergeProxyPrototype), {
     get(_, key) {
       return read(key)
     },
@@ -69,6 +69,8 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
     },
   }) as MergeObjects<T>
 }
+
+const mergeProxyPrototype = {}
 
 const findSource = (objects: readonly object[], key: string | symbol) => {
   for (let i = objects.length - 1; i >= 0; i--) {
