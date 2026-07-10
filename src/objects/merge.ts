@@ -31,15 +31,26 @@ type MergeObjects<T extends readonly object[]> =
     : {}
 
 export function merge<const T extends readonly object[]>(...objects: T): MergeObjects<T> {
+  const wrapMethod = (key: string | symbol, value: Function) =>
+    Object.assign(function (...args: unknown[]) {
+      const source = findSource(objects, key)
+      const currentValue = source && Reflect.get(source, key, source)
+      return Reflect.apply(currentValue as any, source, args)
+    }, value)
+
+  const read = (key: string | symbol) => {
+    const source = findSource(objects, key)
+    if (!source) return undefined
+
+    const value = (source as any)[key]
+    if (typeof value === 'function')
+      return wrapMethod(key, value)
+    return value
+  }
+
   return new Proxy({}, {
     get(_, key) {
-      const source = findSource(objects, key)
-      if (!source) return undefined
-
-      const value = (source as any)[key]
-      if (typeof value === 'function')
-        return Object.assign(value.bind(source), value)
-      return value
+      return read(key)
     },
     has(_, key) {
       return findSource(objects, key) !== undefined
@@ -53,6 +64,7 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
       return {
         enumerable: true,
         configurable: true,
+        get: () => read(key),
       }
     },
   }) as MergeObjects<T>

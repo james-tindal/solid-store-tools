@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
+import { createStore } from 'solid-js/store'
 import { objectFromAccessor } from './object-from-accessor'
 
 describe('objectFromAccessor', () => {
@@ -164,5 +165,19 @@ describe('objectFromAccessor', () => {
     }))
 
     expect(proxy[key]).toBe('symbol value')
+  })
+
+  it('accessor descriptors can be passed through Solid store updates', () => {
+    const [nestedStore] = createStore({ value: 'initial' })
+    const current = {
+      get nestedStore() {
+        return nestedStore
+      },
+    }
+    const proxy = objectFromAccessor(() => current)
+    const [, setStore] = createStore({} as { data?: typeof proxy })
+
+    expect(Object.getOwnPropertyDescriptor(proxy, 'nestedStore')?.get).toBeTypeOf('function')
+    expect(() => setStore({ data: proxy })).not.toThrow()
   })
 })

@@ -1,4 +1,5 @@
 import { createRoot, createSignal } from 'solid-js'
+import { createStore } from 'solid-js/store'
 import { describe, expect, test } from 'vitest'
 import { omit } from './omit'
 
@@ -621,6 +622,20 @@ describe('omit()', () => {
       delete (result as any).omittedMissing
     }).toThrow(TypeError)
     expect('omittedMissing' in source).toBe(false)
+  })
+  test('remaining accessor descriptors can be passed through Solid store updates', () => {
+    const [nestedStore] = createStore({ value: 'initial' })
+    const source = {
+      get nestedStore() {
+        return nestedStore
+      },
+      skipped: true,
+    }
+    const result = omit(source, ['skipped'])
+    const [, setStore] = createStore({} as { data?: typeof result })
+
+    expect(Object.getOwnPropertyDescriptor(result, 'nestedStore')?.get).toBeTypeOf('function')
+    expect(() => setStore({ data: result })).not.toThrow()
   })
 })
 

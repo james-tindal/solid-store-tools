@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { createStore } from 'solid-js/store'
 import { pick } from './pick'
 
 
@@ -614,5 +615,19 @@ describe('pick()', () => {
       delete (picked as any).unselectedMissing
     }).toThrow(TypeError)
     expect('unselectedMissing' in source).toBe(false)
+  })
+  test('selected accessor descriptors can be passed through Solid store updates', () => {
+    const [nestedStore] = createStore({ value: 'initial' })
+    const source = {
+      get nestedStore() {
+        return nestedStore
+      },
+      skipped: true,
+    }
+    const picked = pick(source, ['nestedStore'])
+    const [, setStore] = createStore({} as { data?: typeof picked })
+
+    expect(Object.getOwnPropertyDescriptor(picked, 'nestedStore')?.get).toBeTypeOf('function')
+    expect(() => setStore({ data: picked })).not.toThrow()
   })
 })

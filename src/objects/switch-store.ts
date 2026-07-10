@@ -1,5 +1,4 @@
-import { createComputed, createRoot, onCleanup, untrack } from 'solid-js'
-import { createStore } from 'solid-js/store'
+import { createComputed, createRoot, createSignal, onCleanup, untrack } from 'solid-js'
 
 type BranchKey = string | number | symbol
 
@@ -32,7 +31,7 @@ export function switchStore<const TSelection extends Selection, const TBranches 
   branches: TBranches,
 ): StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>> {
   type Store = StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>> & object
-  const [store, setStore] = createStore({} as Store)
+  const [store, setStore] = createSignal<Store>({} as Store, { equals: false })
   let disposeBranch: (() => void) | undefined
   let key: BranchKey | undefined
 
@@ -50,16 +49,20 @@ export function switchStore<const TSelection extends Selection, const TBranches 
           ? entry(selection.data as never)
           : entry
 
-        for (const key of Object.keys(store))
-          setStore(key as any, undefined)
-        setStore(spec as any)
+        setStore(() => spec as Store)
       })
     })
   })
 
   onCleanup(() => disposeBranch?.())
 
-  return store as StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
+  return new Proxy({} as Store, {
+    get: (_, key) => store()[key as keyof Store],
+    has: (_, key) => key in store(),
+    ownKeys: () => Reflect.ownKeys(store()),
+    getOwnPropertyDescriptor: (_, key) =>
+      Reflect.getOwnPropertyDescriptor(store(), key),
+  }) as StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
 }
 
 function normalizeSelection(selection: Selection) {

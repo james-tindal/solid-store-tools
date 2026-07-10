@@ -1,5 +1,6 @@
 import { assert, test } from 'vitest'
 import { createComputed, createRoot, createSignal } from 'solid-js'
+import { createStore } from 'solid-js/store'
 import { getters } from './getters'
 
 test('deriveObject exposes derived entries as properties', () => createRoot(dispose => {
@@ -55,25 +56,25 @@ test('deriveObject tracks source dependencies from the read site', () => createR
 }))
 
 test('deriveObject recurses into plain object and array entries', () => createRoot(dispose => {
-  const [money, setMoney] = createSignal(10_000)
+  const [value, setValue] = createSignal(10_000)
   const object = getters({
-    player: {
-      name: 'Player',
-      money,
+    item: {
+      label: 'Item',
+      value,
     },
-    players: [
-      { money },
+    items: [
+      { value },
     ],
   })
 
-  assert.strictEqual(object.player.name, 'Player')
-  assert.strictEqual(object.player.money, 10_000)
-  assert.strictEqual(object.players[0]!.money, 10_000)
+  assert.strictEqual(object.item.label, 'Item')
+  assert.strictEqual(object.item.value, 10_000)
+  assert.strictEqual(object.items[0]!.value, 10_000)
 
-  setMoney(9_900)
+  setValue(9_900)
 
-  assert.strictEqual(object.player.money, 9_900)
-  assert.strictEqual(object.players[0]!.money, 9_900)
+  assert.strictEqual(object.item.value, 9_900)
+  assert.strictEqual(object.items[0]!.value, 9_900)
   dispose()
 }))
 
@@ -92,3 +93,29 @@ test('deriveObject properties are enumerable and spread current values', () => c
   assert.deepStrictEqual({ ...object }, { count: 2, label: 'chips' })
   dispose()
 }))
+
+test('deriveObject reports derived entries as accessor descriptors', () => {
+  const object = getters({
+    value: () => 1,
+    label: 'static',
+  })
+
+  const derived = Object.getOwnPropertyDescriptor(object, 'value')
+  const staticValue = Object.getOwnPropertyDescriptor(object, 'label')
+
+  assert.strictEqual(typeof derived?.get, 'function')
+  assert.strictEqual(derived?.enumerable, true)
+  assert.strictEqual(derived?.configurable, true)
+  assert.strictEqual(staticValue?.value, 'static')
+  assert.strictEqual(staticValue?.enumerable, true)
+  assert.strictEqual(staticValue?.configurable, true)
+})
+
+test('deriveObject accessor descriptors can be passed through Solid store updates', () => {
+  const object = getters({
+    nested: () => ({ value: 'initial' }),
+  })
+  const [, setStore] = createStore({} as { data?: typeof object })
+
+  assert.doesNotThrow(() => setStore({ data: object }))
+})
