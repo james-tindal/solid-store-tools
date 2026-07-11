@@ -1,17 +1,14 @@
 
-// Convert own functions to getters
-// getters can be at top level of the object or in nested objects/arrays
-// Non-function values are retained
+// Converts nullary function entries into getter properties.
+// Recurses into non-array object entries.
+// Arrays and non-nullary functions are retained as values.
 export function getters<const T extends object>(spec: T): DeriveObject<T> {
-  if (Array.isArray(spec))
-    return spec.map(deriveEntry) as DeriveObject<T>
-
   return Object.defineProperties(
     {},
     Object.fromEntries(
       Object.entries(spec).map(([key, value]) => [
         key,
-        typeof value === 'function'
+        isAccessor(value)
           ? { enumerable: true, configurable: true, get: value }
           : { enumerable: true, configurable: true, value: deriveEntry(value) },
       ])
@@ -20,30 +17,25 @@ export function getters<const T extends object>(spec: T): DeriveObject<T> {
 }
 
 function deriveEntry(value: unknown): unknown {
-  if (typeof value === 'function')
+  if (isAccessor(value))
     return value()
 
-  if (isPlainObjectOrArray(value))
+  if (isNonArrayObject(value))
     return getters(value)
 
   return value
 }
 
-function isPlainObjectOrArray(value: unknown): value is object {
-  if (value === null || typeof value !== 'object') return false
-
-  const proto = Object.getPrototypeOf(value)
-  return proto === Object.prototype || proto === Array.prototype
+function isAccessor(value: unknown): value is () => unknown {
+  return typeof value === 'function' && value.length === 0
 }
 
-type DerivedEntry = (...args: never[]) => unknown
+function isNonArrayObject(value: unknown): value is object {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
 
 type DeriveObject<T> =
-  T extends DerivedEntry ? ReturnType<T> :
-  T extends readonly (infer U)[]
-    ? number extends T['length']
-      ? Array<DeriveObject<U>>
-      : { -readonly [K in keyof T]: DeriveObject<T[K]> }
-    :
+  T extends (...args: infer Args) => infer R ? Args extends [] ? R : T :
+  T extends readonly unknown[] ? T :
   T extends object ? { readonly [K in keyof T]: DeriveObject<T[K]> } :
   T
