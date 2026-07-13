@@ -108,6 +108,27 @@ test('switchStore passes merged proxy data containing Solid stores without unwra
   dispose()
 }))
 
+test('switchStore proxies remain compatible with Solid store wrapping', () => createRoot(dispose => {
+  const source = createMutable({ value: 'initial' })
+  const [nestedStore] = createStore(source)
+  const proxy = switchStore(
+    () => 'selected' as const,
+    {
+      selected: { nestedStore },
+    },
+  )
+  const [store, setStore] = createStore({} as { data?: typeof proxy })
+
+  setStore({ data: proxy })
+
+  assert.strictEqual(store.data?.nestedStore.value, 'initial')
+
+  source.value = 'updated'
+
+  assert.strictEqual(store.data?.nestedStore.value, 'updated')
+  dispose()
+}))
+
 test('branch data functions can update the reactive source used by the picker', () => createRoot(dispose => {
   const toggle = createMutable({
     enabled: false,

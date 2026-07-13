@@ -50,7 +50,10 @@ export function filterKeys<T extends object>(accessor: () => T, allows: (key: Pr
     apply: (_target, thisArgument, argumentsList) =>
       Reflect.apply(accessor() as any, thisArgument, argumentsList),
 
-    defineProperty(_target, key, descriptor) {
+    defineProperty(target, key, descriptor) {
+      if (isSolidStoreSymbol(key))
+        return Reflect.defineProperty(target, key, descriptor)
+
       const object = accessor()
       if (!allows(key, object))
         return false
@@ -70,13 +73,19 @@ export function filterKeys<T extends object>(accessor: () => T, allows: (key: Pr
         return false
     },
 
-    get(_target, key) {
+    get(target, key) {
+      if (isSolidStoreSymbol(key))
+        return Reflect.get(target, key)
+
       const object = accessor()
       if (allows(key, object))
         return wrapMethod(key, Reflect.get(object, key, object))
     },
 
-    getOwnPropertyDescriptor(_target, key) {
+    getOwnPropertyDescriptor(target, key) {
+      if (isSolidStoreSymbol(key))
+        return Reflect.getOwnPropertyDescriptor(target, key)
+
       const object = accessor()
       if (allows(key, object))
         return descriptorFor(object, key)
@@ -122,3 +131,7 @@ export function filterKeys<T extends object>(accessor: () => T, allows: (key: Pr
 
   return new Proxy(target, handler) as T
 }
+
+const isSolidStoreSymbol = (key: PropertyKey) =>
+  typeof key === 'symbol' &&
+  ['Symbol(solid-proxy)', 'Symbol(store-node)', 'Symbol(store-has)'].includes(String(key))

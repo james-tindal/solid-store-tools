@@ -38,7 +38,7 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
       return Reflect.apply(currentValue as any, source, args)
     }, value)
 
-  const read = (key: string | symbol) => {
+  function read(key: string | symbol) {
     const source = findSource(objects, key)
     if (!source) return undefined
 
@@ -48,17 +48,24 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
     return value
   }
 
-  return new Proxy(Object.create(mergeProxyPrototype), {
-    get(_, key) {
-      return read(key)
+  return new Proxy({}, {
+    get(target, key, receiver) {
+      if (Reflect.has(target, key))
+        return Reflect.get(target, key, receiver)
+      else
+        return read(key)
     },
-    has(_, key) {
-      return findSource(objects, key) !== undefined
+    has(target, key) {
+      return key in target || findSource(objects, key) !== undefined
     },
-    ownKeys() {
-      return getMergedPropertyKeys(objects)
+    ownKeys(target) {
+      return dedupe([...Reflect.ownKeys(target), ...getMergedPropertyKeys(objects)])
     },
-    getOwnPropertyDescriptor(_, key) {
+    getOwnPropertyDescriptor(target, key) {
+      const targetDescriptor = Reflect.getOwnPropertyDescriptor(target, key)
+      if (targetDescriptor && !targetDescriptor.configurable)
+        return targetDescriptor
+
       if (!findSource(objects, key)) return undefined
 
       return {
@@ -70,9 +77,7 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
   }) as MergeObjects<T>
 }
 
-const mergeProxyPrototype = {}
-
-const findSource = (objects: readonly object[], key: string | symbol) => {
+function findSource(objects: readonly object[], key: string | symbol) {
   for (let i = objects.length - 1; i >= 0; i--) {
     const object = objects[i]!
     if (getPropertyKeys(object).includes(key))
@@ -80,35 +85,23 @@ const findSource = (objects: readonly object[], key: string | symbol) => {
   }
 }
 
-const getMergedPropertyKeys = (objects: readonly object[]) => {
-  const keys: (string | symbol)[] = []
-  const seen = new Set<string | symbol>()
+const getMergedPropertyKeys = (objects: readonly object[]) =>
+  dedupe(objects.flatMap(getPropertyKeys))
 
-  for (const object of objects) {
-    for (const key of getPropertyKeys(object)) {
-      if (seen.has(key)) continue
+const getPropertyKeys = (object: object) =>
+  dedupe(
+    walkPrototypeChain(object)
+      .flatMap(Reflect.ownKeys)
+  ).filter(key => key !== 'constructor')
 
-      seen.add(key)
-      keys.push(key)
-    }
-  }
-
-  return keys
+function* walkPrototypeChain(object: object) {
+  for (
+    let current: object | null = object;
+    current && current !== Object.prototype;
+    current = Object.getPrototypeOf(current)
+  )
+    yield current
 }
 
-const getPropertyKeys = (object: object) => {
-  const keys: (string | symbol)[] = []
-  const seen = new Set<string | symbol>()
-
-  for (let current: object | null = object; current && current !== Object.prototype; current = Object.getPrototypeOf(current)) {
-    for (const key of Reflect.ownKeys(current)) {
-      if (key === 'constructor') continue
-      if (seen.has(key)) continue
-
-      seen.add(key)
-      keys.push(key)
-    }
-  }
-
-  return keys
-}
+type UnwrapIterable<T extends Iterable<any>> = T extends Iterable<infer X> ? X : never
+const dedupe = <T extends Iterable<any>>(xs: T) => [...new Set<UnwrapIterable<T>>(xs)]

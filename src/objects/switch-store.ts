@@ -57,13 +57,43 @@ export function switchStore<const TSelection extends Selection, const TBranches 
   onCleanup(() => disposeBranch?.())
 
   return new Proxy({} as Store, {
-    get: (_, key) => store()[key as keyof Store],
-    has: (_, key) => key in store(),
-    ownKeys: () => Reflect.ownKeys(store()),
-    getOwnPropertyDescriptor: (_, key) =>
-      Reflect.getOwnPropertyDescriptor(store(), key),
+    get: (target, key) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.get(target, key)
+        : store()[key as keyof Store],
+    has: (target, key) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.has(target, key)
+        : key in store(),
+    ownKeys: target =>
+      dedupe([
+        ...Reflect.ownKeys(store()),
+        ...Reflect.ownKeys(target),
+      ]),
+    getOwnPropertyDescriptor: (target, key) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.getOwnPropertyDescriptor(target, key)
+        : Reflect.getOwnPropertyDescriptor(store(), key),
+    set: (target, key, value) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.set(target, key, value)
+        : Reflect.set(store(), key, value),
+    defineProperty: (target, key, descriptor) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.defineProperty(target, key, descriptor)
+        : Reflect.defineProperty(store(), key, descriptor),
+    deleteProperty: (target, key) =>
+      isSolidStoreSymbol(key)
+        ? Reflect.deleteProperty(target, key)
+        : Reflect.deleteProperty(store(), key),
   }) as StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
 }
+
+const isSolidStoreSymbol = (key: PropertyKey) =>
+  typeof key === 'symbol' &&
+  ['Symbol(solid-proxy)', 'Symbol(store-node)', 'Symbol(store-has)'].includes(String(key))
+
+const dedupe = <T>(values: T[]) => [...new Set(values)]
 
 function normalizeSelection(selection: Selection) {
   return Array.isArray(selection)

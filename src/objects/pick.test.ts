@@ -617,6 +617,7 @@ describe('pick()', () => {
     }).toThrow(TypeError)
     expect('unselectedMissing' in source).toBe(false)
   })
+
   test('selected accessor descriptors can be passed through Solid store updates', () => {
     const [nestedStore] = createStore({ value: 'initial' })
     const source = {
@@ -630,6 +631,20 @@ describe('pick()', () => {
 
     expect(Object.getOwnPropertyDescriptor(picked, 'nestedStore')?.get).toBeTypeOf('function')
     expect(() => setStore({ data: picked })).not.toThrow()
+  })
+
+  test('pick proxies remain compatible with Solid store wrapping', () => {
+    const [nestedStore, setNestedStore] = createStore({ value: 'initial' })
+    const picked = pick({ nestedStore }, ['nestedStore'])
+    const [store, setStore] = createStore({} as { data?: typeof picked })
+
+    setStore({ data: picked })
+
+    expect(store.data?.nestedStore.value).toBe('initial')
+
+    setNestedStore('value', 'updated')
+
+    expect(store.data?.nestedStore.value).toBe('updated')
   })
 })
 

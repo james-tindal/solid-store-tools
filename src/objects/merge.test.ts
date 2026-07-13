@@ -125,13 +125,14 @@ test('merge accessor descriptors read overridden keys from the winning source', 
 })
 
 test('merge proxies remain compatible with Solid store wrapping', () => {
-  const [nestedStore] = createStore({ value: 'initial' })
-  const merged = merge({ nestedStore })
+  const [source, setSource] = createStore({ value: 'initial' })
+  const merged = merge({ nestedStore: source })
   const [store, setStore] = createStore({} as { data?: typeof merged })
 
   assert.doesNotThrow(() => setStore({ data: merged }))
-  assert.doesNotThrow(() => store.data)
-  assert.strictEqual(store.data, merged)
+  assert.strictEqual(store.data?.nestedStore.value, 'initial')
+  setSource('value', 'updated')
+  assert.strictEqual(store.data?.nestedStore.value, 'updated')
 })
 
 test('merge ownKeys remains valid when a target-owned key overlaps a merged key', () => {

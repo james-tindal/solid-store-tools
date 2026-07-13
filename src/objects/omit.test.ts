@@ -637,6 +637,20 @@ describe('omit()', () => {
     expect(Object.getOwnPropertyDescriptor(result, 'nestedStore')?.get).toBeTypeOf('function')
     expect(() => setStore({ data: result })).not.toThrow()
   })
+
+  test('omit proxies remain compatible with Solid store wrapping', () => {
+    const [nestedStore, setNestedStore] = createStore({ value: 'initial' })
+    const result = omit({ nestedStore, skipped: true }, ['skipped'])
+    const [store, setStore] = createStore({} as { data?: typeof result })
+
+    setStore({ data: result })
+
+    expect(store.data?.nestedStore.value).toBe('initial')
+
+    setNestedStore('value', 'updated')
+
+    expect(store.data?.nestedStore.value).toBe('updated')
+  })
 })
 
 describe('omit() with signal source', () => {

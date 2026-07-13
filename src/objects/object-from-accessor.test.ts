@@ -180,4 +180,18 @@ describe('objectFromAccessor', () => {
     expect(Object.getOwnPropertyDescriptor(proxy, 'nestedStore')?.get).toBeTypeOf('function')
     expect(() => setStore({ data: proxy })).not.toThrow()
   })
+
+  it('proxies remain compatible with Solid store wrapping', () => {
+    const [nestedStore, setNestedStore] = createStore({ value: 'initial' })
+    const proxy = objectFromAccessor(() => ({ nestedStore }))
+    const [store, setStore] = createStore({} as { data?: typeof proxy })
+
+    setStore({ data: proxy })
+
+    expect(store.data?.nestedStore.value).toBe('initial')
+
+    setNestedStore('value', 'updated')
+
+    expect(store.data?.nestedStore.value).toBe('updated')
+  })
 })
