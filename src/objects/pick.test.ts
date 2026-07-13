@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { createRoot, createSignal } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { pick } from './pick'
 
@@ -630,4 +631,171 @@ describe('pick()', () => {
     expect(Object.getOwnPropertyDescriptor(picked, 'nestedStore')?.get).toBeTypeOf('function')
     expect(() => setStore({ data: picked })).not.toThrow()
   })
+})
+
+describe('pick() with signal source', () => {
+  test('reads and writes use the current signal value', () => createRoot(dispose => {
+    const first = {
+      name: 'Ada',
+      hidden: 'first hidden',
+    }
+    const second = {
+      name: 'Grace',
+      hidden: 'second hidden',
+    }
+    const [source, setSource] = createSignal(first)
+    const result = pick(source, ['name'])
+
+    expect(result.name).toBe('Ada')
+
+    setSource(second)
+
+    expect(result.name).toBe('Grace')
+
+    result.name = 'Katherine'
+
+    expect(first.name).toBe('Ada')
+    expect(second.name).toBe('Katherine')
+    expect((result as any).hidden).toBeUndefined()
+
+    dispose()
+  }))
+
+  test('keys and descriptors use the current signal value', () => createRoot(dispose => {
+    const first = {
+      name: 'Ada',
+      hidden: 'first hidden',
+    } as {
+      name?: string
+      hidden: string
+    }
+    const second = {
+      hidden: 'second hidden',
+    } as {
+      name?: string
+      hidden: string
+    }
+    Object.defineProperty(second, 'name', {
+      value: 'Grace',
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    })
+    const [source, setSource] = createSignal(first)
+    const result = pick(source, ['name'])
+
+    expect(Object.keys(result)).toEqual(['name'])
+    expect(Object.getOwnPropertyDescriptor(result, 'name')).toEqual({
+      value: 'Ada',
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+
+    setSource(second)
+
+    expect(Object.keys(result)).toEqual([])
+    expect(Object.getOwnPropertyNames(result)).toEqual(['name'])
+    expect(Object.getOwnPropertyDescriptor(result, 'name')).toEqual({
+      value: 'Grace',
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    })
+
+    dispose()
+  }))
+
+  test('previously read methods call the current signal value', () => createRoot(dispose => {
+    const first = {
+      count: 1,
+      increment(step = 1) {
+        this.count += step
+        return this.count
+      },
+      hidden: true,
+    }
+    const second = {
+      count: 10,
+      increment(step = 1) {
+        this.count += step * 10
+        return this.count
+      },
+      hidden: true,
+    }
+    const [source, setSource] = createSignal(first)
+    const result = pick(source, ['increment'])
+    const increment = result.increment
+
+    expect(increment()).toBe(2)
+    expect(first.count).toBe(2)
+
+    setSource(second)
+
+    expect(result.increment).toBe(increment)
+    expect(Object.getOwnPropertyDescriptor(result, 'increment')?.value).toBe(increment)
+    expect(increment(2)).toBe(30)
+    expect(second.count).toBe(30)
+
+    dispose()
+  }))
+
+  test('function calls use the current signal value', () => createRoot(dispose => {
+    const first = Object.assign(function first(value: string) {
+      return `first ${value}`
+    }, {
+      label: 'first',
+      hidden: true,
+    })
+    const second = Object.assign(function second(value: string) {
+      return `second ${value}`
+    }, {
+      label: 'second',
+      hidden: true,
+    })
+    const [source, setSource] = createSignal(first)
+    const result = pick(source, ['label'])
+
+    expect(result('input')).toBe('first input')
+    expect(result.label).toBe('first')
+
+    setSource(() => second)
+
+    expect(result('input')).toBe('second input')
+    expect(result.label).toBe('second')
+
+    dispose()
+  }))
+
+  test('prototype access and mutation use the current signal value', () => createRoot(dispose => {
+    class First {
+      name = 'Ada'
+      hidden = true
+    }
+    class Second {
+      name = 'Grace'
+      hidden = true
+    }
+    class Next {}
+
+    const first = new First()
+    const second = new Second()
+    const [source, setSource] = createSignal<First | Second>(first)
+    const result = pick(source, ['name'])
+
+    expect(Object.getPrototypeOf(result)).toBe(First.prototype)
+    expect(result).toBeInstanceOf(First)
+
+    setSource(second)
+
+    expect(Object.getPrototypeOf(result)).toBe(Second.prototype)
+    expect(result).toBeInstanceOf(Second)
+
+    expect(Object.setPrototypeOf(result, Next.prototype)).toBe(result)
+    expect(Object.getPrototypeOf(first)).toBe(First.prototype)
+    expect(Object.getPrototypeOf(second)).toBe(Next.prototype)
+    expect(Object.getPrototypeOf(result)).toBe(Next.prototype)
+
+    dispose()
+  }))
 })

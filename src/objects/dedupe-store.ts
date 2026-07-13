@@ -1,0 +1,28 @@
+import { createComputed } from 'solid-js'
+import { createStore, reconcile, type ReconcileOptions } from 'solid-js/store'
+
+export function dedupeStore<T extends object>(object: T, options?: ReconcileOptions): T {
+  const [store, setStore] = createStore(snapshot(object))
+
+  createComputed(() => {
+    setStore(reconcile(snapshot(object), options))
+  })
+
+  return store as T
+}
+
+function snapshot(object: object) {
+  const copy: Record<PropertyKey, unknown> = {}
+
+  for (const key of Reflect.ownKeys(object)) {
+    if (isSolidStoreSymbol(key)) continue
+    copy[key] = Reflect.get(object, key, object)
+  }
+
+  return copy
+}
+
+function isSolidStoreSymbol(key: PropertyKey) {
+  if (typeof key !== 'symbol') return false
+  return ['Symbol(solid-proxy)', 'Symbol(store-node)', 'Symbol(store-has)'].includes(String(key))
+}
