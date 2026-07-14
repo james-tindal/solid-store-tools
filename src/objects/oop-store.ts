@@ -1,5 +1,6 @@
 import { createMutable, createStore } from 'solid-js/store'
 import { Simplify } from 'type-fest'
+import { omit } from './omit'
 
 function immutableStore<T extends object>(mutable: T) {
   const [immutable] = createStore(mutable)
@@ -51,4 +52,14 @@ type Constructor<T extends object, Args extends unknown[] = unknown[]> = new (..
 
 export const ClassStore =
   <T extends object, Args extends unknown[]>(C: Constructor<T, Args>) =>
-    (...args: Args) => MethodStore(new C(...args))
+    Object.assign(
+      (...args: Args) => MethodStore(new C(...args)),
+      { private<Keys extends string[]>(this: ReturnType<typeof ClassStore<T, Args>>, ...keys: Keys) {
+        return (...args: Parameters<typeof this>) => omit(this(...args), keys as any as CommonKeys<Keys, typeof this>) } },
+    )
+
+type KeysOfUnion<T> = T extends unknown ? keyof T : never
+type CommonKeys<
+  Keys extends string[],
+  Fn extends (...args: any) => object,
+> = Extract<Keys[number], KeysOfUnion<ReturnType<Fn>>>[]
