@@ -7,6 +7,7 @@ import { omit } from './omit'
 import { pick } from './pick'
 import { switchStore } from './switch-store'
 import { dedupeStore } from './dedupe-store'
+import { Merge } from 'type-fest'
 
 const visibleKeys = (object: object) =>
   Reflect.ownKeys(object).filter(key => typeof key === 'string')
@@ -428,7 +429,7 @@ describe('dedupeStore proxy integration', () => {
 
   test('dedupes replacement of exposed objects inside a store', () => createRoot(dispose => {
     const source = createMutable({
-      user: { name: 'Ada' },
+      user: { name: 'Ada' } as { name: string, active?: boolean },
       hiddenUser: { name: 'Hidden' },
     })
     const store = dedupeStore(pick(source, ['user']))
@@ -469,7 +470,7 @@ describe('dedupeStore proxy integration', () => {
       name: 'Grace' as string | undefined,
       active: true as boolean | undefined,
     })
-    const [source, setSource] = createSignal(first)
+    const [source, setSource] = createSignal<typeof first | typeof second>(first)
     const store = dedupeStore(objectFromAccessor(source))
     const name = track(() => store.name)
     const keys = track(() => visibleKeys(store))
