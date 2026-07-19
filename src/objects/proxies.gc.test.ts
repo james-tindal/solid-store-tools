@@ -1,5 +1,5 @@
-import { assert, test } from 'vitest'
-import { assertGarbageCollected } from '../assert-garbage-collected'
+import { assert } from 'vitest'
+import { test, runTests } from '../test-garbage-collected'
 import { filterKeys } from './filterKeys'
 import { merge } from './merge'
 import { objectFromAccessor } from './object-from-accessor'
@@ -11,20 +11,20 @@ const utilities = {
 }
 
 for (const [name, create] of Object.entries(utilities)) {
-  test(`${name} releases proxy while extracted wrapped method remains referenced`, async () => {
+  test(`${name} releases proxy while extracted wrapped method remains referenced`, () => {
     const source = {
       method() {},
     }
     let view: { method: () => void } | undefined = create(source)
     const method: (() => void) | undefined = view.method
-    const proxyCollected = assertGarbageCollected(view)
+    const target = view
 
     view = undefined
 
-    await proxyCollected
+    return { target, retain: method }
   })
 
-  test(`${name} releases source method while extracted wrapped method remains referenced`, async () => {
+  test(`${name} releases source method while extracted wrapped method remains referenced`, () => {
     let sourceMethod: (() => string) | undefined = function sourceMethod() {
       return 'old'
     }
@@ -33,7 +33,7 @@ for (const [name, create] of Object.entries(utilities)) {
     }
     const view = create(source)
     const method = view.method
-    const methodCollected = assertGarbageCollected(sourceMethod)
+    const target = sourceMethod
 
     source.method = function replacement() {
       return 'new'
@@ -42,6 +42,8 @@ for (const [name, create] of Object.entries(utilities)) {
 
     assert.strictEqual(method(), 'new')
 
-    await methodCollected
+    return { target, retain: method }
   })
 }
+
+runTests('proxy utilities release garbage')
