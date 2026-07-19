@@ -13,23 +13,7 @@ type PickResult<T, K extends PropertyKey> =
     ? ((...args: A) => R) & PickUnion<T, K>
     : PickUnion<T, K>
 
-export function pickAccessor<T extends object, const K extends readonly KeysOfUnion<T>[]>(accessor: () => T, keys: K): PickResult<T, K[number]> {
+export function pick<T extends object, const K extends readonly KeysOfUnion<T>[]>(object: T, keys: K): PickResult<T, K[number]> {
   const selected = new Set<PropertyKey>(keys)
-  return filterKeys(accessor, key => selected.has(key)) as unknown as PickResult<T, K[number]>
+  return filterKeys(object, key => selected.has(key)) as unknown as PickResult<T, K[number]>
 }
-
-export const pickObject = <T extends object, const K extends readonly KeysOfUnion<T>[]>
-  (object: T, keys: K): PickResult<T, K[number]> =>
-    pickAccessor(() => object, keys)
-
-type PickOverload = {
-  <T extends object, const K extends KeysOfUnion<T>>
-    (accessor: () => T, keys: readonly K[]): PickResult<T, K>
-  <T extends object, const K extends KeysOfUnion<T>>
-    (object: T, keys: readonly K[]): PickResult<T, K>
-}
-
-export const pick: PickOverload = (objectOrAccessor: any, keys: readonly PropertyKey[]) =>
-  typeof objectOrAccessor === 'function' && objectOrAccessor.length === 0
-    ? pickAccessor(objectOrAccessor, keys as any)
-    : pickObject(objectOrAccessor, keys as any)

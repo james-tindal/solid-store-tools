@@ -1,6 +1,8 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
-import { createStore } from 'solid-js/store'
+import { createSignal } from 'solid-js'
+import { assertGarbageCollected } from '../assert-garbage-collected'
 import { objectFromAccessor } from './object-from-accessor'
+import { createRootDisposed } from '../createRootDisposed'
 
 describe('objectFromAccessor', () => {
   it('returns a proxy typed as the object returned by the accessor', () => {
@@ -34,7 +36,7 @@ describe('objectFromAccessor', () => {
 
     expect(proxy.first).toBe('one')
     expect(proxy.second).toBe('two')
-    expect(calls).toBe(2)
+    expect(calls).toBe(3)
   })
 
   it('reads from the latest object returned by the accessor', () => {
@@ -46,6 +48,29 @@ describe('objectFromAccessor', () => {
     current = { value: 'updated' }
 
     expect(proxy.value).toBe('updated')
+  })
+
+  it('releases previously returned objects while a wrapped method remains alive', async () => {
+    let current = {
+      method() {
+        return 'old'
+      },
+    }
+    let previous: typeof current | undefined = current
+    const proxy = objectFromAccessor(() => current)
+    const method = proxy.method
+    const collected = assertGarbageCollected(previous)
+
+    current = {
+      method() {
+        return 'new'
+      },
+    }
+    previous = undefined
+
+    expect(method()).toBe('new')
+
+    await collected
   })
 
   it('writes to the latest object returned by the accessor', () => {
@@ -112,6 +137,39 @@ describe('objectFromAccessor', () => {
     )
   })
 
+  it('reports source non-configurable descriptors as configurable proxy descriptors', () => {
+    const current = {}
+    const proxy = objectFromAccessor(() => current)
+
+    Object.defineProperty(current, 'value', {
+      configurable: false,
+      enumerable: true,
+      value: 'locked',
+      writable: true,
+    })
+
+    expect(Object.getOwnPropertyDescriptor(proxy, 'value')).toEqual({
+      configurable: true,
+      enumerable: true,
+      value: 'locked',
+      writable: true,
+    })
+  })
+
+  it('enumerates source non-configurable properties without proxy invariant errors', () => {
+    const current = {}
+    const proxy = objectFromAccessor(() => current)
+
+    Object.defineProperty(current, 'value', {
+      configurable: false,
+      enumerable: true,
+      value: 'locked',
+      writable: true,
+    })
+
+    expect(Object.keys(proxy)).toEqual(['value'])
+  })
+
   it('deletes properties from the latest object returned by the accessor', () => {
     let current = { value: 'initial' } as any
     const proxy = objectFromAccessor(() => current)
@@ -167,31 +225,142 @@ describe('objectFromAccessor', () => {
     expect(proxy[key]).toBe('symbol value')
   })
 
-  it('accessor descriptors can be passed through Solid store updates', () => {
-    const [nestedStore] = createStore({ value: 'initial' })
-    const current = {
-      get nestedStore() {
-        return nestedStore
-      },
-    }
+  it('array methods call the latest array returned by the accessor', () => {
+    let current = [1, 2, 3]
     const proxy = objectFromAccessor(() => current)
-    const [, setStore] = createStore({} as { data?: typeof proxy })
+    const map = proxy.map
 
-    expect(Object.getOwnPropertyDescriptor(proxy, 'nestedStore')?.get).toBeTypeOf('function')
-    expect(() => setStore({ data: proxy })).not.toThrow()
+    expect(proxy.map(value => value * 2)).toEqual([2, 4, 6])
+
+    current = [10, 20]
+
+    expect(proxy.map).toBe(map)
+    expect(map(value => value + 1)).toEqual([11, 21])
   })
 
-  it('proxies remain compatible with Solid store wrapping', () => {
-    const [nestedStore, setNestedStore] = createStore({ value: 'initial' })
-    const proxy = objectFromAccessor(() => ({ nestedStore }))
-    const [store, setStore] = createStore({} as { data?: typeof proxy })
+  it('prototype access and mutation use the current object returned by the accessor', () => {
+    class First {
+      name = 'Ada'
+    }
+    class Second {
+      name = 'Grace'
+    }
+    class Next {}
 
-    setStore({ data: proxy })
+    const first = new First()
+    const second = new Second()
+    let current: First | Second = first
+    const proxy = objectFromAccessor(() => current)
 
-    expect(store.data?.nestedStore.value).toBe('initial')
+    expect(Object.getPrototypeOf(proxy)).toBe(First.prototype)
+    expect(proxy).toBeInstanceOf(First)
 
-    setNestedStore('value', 'updated')
+    current = second
 
-    expect(store.data?.nestedStore.value).toBe('updated')
+    expect(Object.getPrototypeOf(proxy)).toBe(Second.prototype)
+    expect(proxy).toBeInstanceOf(Second)
+
+    expect(Object.setPrototypeOf(proxy, Next.prototype)).toBe(proxy)
+    expect(Object.getPrototypeOf(first)).toBe(First.prototype)
+    expect(Object.getPrototypeOf(second)).toBe(Next.prototype)
+    expect(Object.getPrototypeOf(proxy)).toBe(Next.prototype)
+  })
+
+  it('previously read methods call the latest object returned by the accessor', () => {
+    const first = {
+      count: 1,
+      increment(step = 1) {
+        this.count += step
+        return this.count
+      },
+    }
+    const second = {
+      count: 10,
+      increment(step = 1) {
+        this.count += step * 10
+        return this.count
+      },
+    }
+    let current = first
+    const proxy = objectFromAccessor(() => current)
+    const increment = proxy.increment
+
+    expect(increment()).toBe(2)
+    expect(first.count).toBe(2)
+
+    current = second
+
+    expect(proxy.increment).toBe(increment)
+    expect(Object.getOwnPropertyDescriptor(proxy, 'increment')?.value).toBe(increment)
+    expect(increment(2)).toBe(30)
+    expect(second.count).toBe(30)
+  })
+
+  it('function calls use the latest function returned by the accessor', () => {
+    const first = Object.assign(function first(value: string) {
+      return `first ${value}`
+    }, {
+      label: 'first',
+    })
+    const second = Object.assign(function second(value: string) {
+      return `second ${value}`
+    }, {
+      label: 'second',
+    })
+    let current = first
+    const proxy = objectFromAccessor(() => current)
+
+    expect(proxy('input')).toBe('first input')
+    expect(proxy.label).toBe('first')
+
+    current = second
+
+    expect(proxy('input')).toBe('second input')
+    expect(proxy.label).toBe('second')
+  })
+
+  it('works with Solid signals as accessors', () => {
+    const first = {
+      name: 'Ada',
+    } as {
+      name?: string
+    }
+    const second = {} as {
+      name?: string
+    }
+    Object.defineProperty(second, 'name', {
+      value: 'Grace',
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    })
+    const [source, setSource] = createRootDisposed(() => createSignal(first))
+    const proxy = objectFromAccessor(source)
+
+    expect(proxy.name).toBe('Ada')
+    expect(Object.keys(proxy)).toEqual(['name'])
+    expect(Object.getOwnPropertyDescriptor(proxy, 'name')).toEqual({
+      value: 'Ada',
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+
+    setSource(second)
+
+    expect(proxy.name).toBe('Grace')
+    expect(Object.keys(proxy)).toEqual([])
+    expect(Object.getOwnPropertyNames(proxy)).toEqual(['name'])
+    expect(Object.getOwnPropertyDescriptor(proxy, 'name')).toEqual({
+      value: 'Grace',
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    })
+
+    proxy.name = 'Katherine'
+
+    expect(first.name).toBe('Ada')
+    expect(second.name).toBe('Katherine')
   })
 })

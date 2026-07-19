@@ -1,45 +1,41 @@
-export function filterKeys<T extends object>(accessor: () => T, allows: (key: PropertyKey, object: T) => boolean): T {
-  const methodWrappers = new Map<PropertyKey, Function>()
+import {
+  dataDescriptorFrom,
+  isSolidStoreMetadataKey,
+  ownKeysWithLocalMetadata,
+  solidStoreMetadataDefineProperty,
+  solidStoreMetadataDeleteProperty,
+  solidStoreMetadataGet,
+  solidStoreMetadataGetOwnPropertyDescriptor,
+  solidStoreMetadataHas,
+  solidStoreMetadataSet,
+} from './private-helpers'
+import { WrappedMethods } from './wrapped-methods'
 
-  function getObject() {
-    const object = accessor()
-    if (object === null || (typeof object !== 'object' && typeof object !== 'function'))
-      throw new TypeError(`pick/omit expected source to be an object, received ${JSON.stringify(object)}`)
-    return object
+export function filterKeys<T extends object>(source: T, allows: (key: string | symbol, object: T) => boolean): T {
+  const wrappedMethods = new WrappedMethods(key => ({
+    object: source,
+    method: Reflect.get(source, key, source) as Function,
+  }))
+
+  function wrapMethod(key: string | symbol, value: unknown) {
+    return wrappedMethods.get(key, value)
   }
 
-  function wrapMethod(key: PropertyKey, value: unknown) {
-    if (typeof value !== 'function') return value
-
-    const cached = methodWrappers.get(key)
-    if (cached) return cached
-
-    function wrapper(...args: unknown[]) {
-      const currentObject = getObject()
-      const currentValue = Reflect.get(currentObject, key, currentObject)
-      return Reflect.apply(currentValue as any, currentObject, args)
-    }
-    methodWrappers.set(key, wrapper)
-    return wrapper
-  }
-
-  function descriptorFor(object: T, key: PropertyKey) {
-    const descriptor = Reflect.getOwnPropertyDescriptor(object, key)
+  function descriptorFor(object: T, key: string | symbol) {
+    const descriptor = dataDescriptorFrom(object, key)
     if (!descriptor) return
 
-    if ('value' in descriptor) return {
+    return {
       ...descriptor,
       value: wrapMethod(key, descriptor.value),
     }
-
-    return descriptor
   }
 
-  const target = typeof getObject() === 'function'
+  const target = typeof source === 'function'
     ? function () { }
     : {}
 
-  function syncNonConfigurableDescriptor(object: T, key: PropertyKey) {
+  function syncNonConfigurableDescriptor(object: T, key: string | symbol) {
     const descriptor = descriptorFor(object, key)
     if (!descriptor || descriptor.configurable) return
     Reflect.defineProperty(target, key, descriptor)
@@ -51,94 +47,89 @@ export function filterKeys<T extends object>(accessor: () => T, allows: (key: Pr
         syncNonConfigurableDescriptor(object, key)
   }
 
-  syncNonConfigurableDescriptors(getObject())
+  syncNonConfigurableDescriptors(source)
 
   const handler: ProxyHandler<object> = {
     apply: (_target, thisArgument, argumentsList) =>
-      Reflect.apply(getObject() as any, thisArgument, argumentsList),
+      Reflect.apply(source as any, thisArgument, argumentsList),
 
     defineProperty(target, key, descriptor) {
-      if (isSolidStoreSymbol(key))
-        return Reflect.defineProperty(target, key, descriptor)
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataDefineProperty(target, key, descriptor)
 
-      const object = getObject()
-      if (!allows(key, object))
+      if (!allows(key, source))
         return false
 
-      const result = Reflect.defineProperty(object, key, descriptor)
+      const result = Reflect.defineProperty(source, key, descriptor)
       if (result)
-        syncNonConfigurableDescriptor(object, key)
+        syncNonConfigurableDescriptor(source, key)
 
       return result
     },
 
     deleteProperty(_target, key) {
-      const object = getObject()
-      if (allows(key, object))
-        return Reflect.deleteProperty(object, key)
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataDeleteProperty(target, key)
+
+      if (allows(key, source))
+        return Reflect.deleteProperty(source, key)
       else
         return false
     },
 
     get(target, key) {
-      if (isSolidStoreSymbol(key))
-        return Reflect.get(target, key)
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataGet(target, key)
 
-      const object = getObject()
-      if (allows(key, object))
-        return wrapMethod(key, Reflect.get(object, key, object))
+      if (allows(key, source))
+        return wrapMethod(key, Reflect.get(source, key, source))
     },
 
     getOwnPropertyDescriptor(target, key) {
-      if (isSolidStoreSymbol(key))
-        return Reflect.getOwnPropertyDescriptor(target, key)
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataGetOwnPropertyDescriptor(target, key)
 
-      const object = getObject()
-      if (allows(key, object))
-        return descriptorFor(object, key)
+      const targetDescriptor = Reflect.getOwnPropertyDescriptor(target, key)
+      if (targetDescriptor && !targetDescriptor.configurable)
+        return targetDescriptor
+
+      if (allows(key, source))
+        return descriptorFor(source, key)
     },
 
-    has(_target, key) {
-      const object = getObject()
-      return allows(key, object) && key in object
+    has(target, key) {
+      return isSolidStoreMetadataKey(key)
+        ? solidStoreMetadataHas(target, key)
+        : allows(key, source) && key in source
     },
 
     ownKeys() {
-      const object = getObject()
-      syncNonConfigurableDescriptors(object)
+      syncNonConfigurableDescriptors(source)
 
-      const keys = Reflect.ownKeys(object).filter(key => allows(key, object))
-      const keySet = new Set(keys)
-
-      for (const key of Reflect.ownKeys(target)) {
-        const descriptor = Reflect.getOwnPropertyDescriptor(target, key)
-        if (descriptor && !descriptor.configurable && !keySet.has(key))
-          keys.push(key)
-      }
-
-      return keys
+      return ownKeysWithLocalMetadata(
+        Reflect.ownKeys(source).filter(key => allows(key, source)),
+        target,
+      )
     },
 
-    set(_target, key, value) {
-      const object = getObject()
-      if (!allows(key, object))
+    set(target, key, value) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataSet(target, key, value)
+
+      if (!allows(key, source))
         return false
 
-      const result = Reflect.set(object, key, value, object)
+      const result = Reflect.set(source, key, value, source)
       if (result)
-        syncNonConfigurableDescriptor(object, key)
+        syncNonConfigurableDescriptor(source, key)
 
       return result
     },
 
     preventExtensions: () => false,
-    setPrototypeOf: (_target, prototype) => Reflect.setPrototypeOf(getObject(), prototype),
-    getPrototypeOf: () => Reflect.getPrototypeOf(getObject()),
+    setPrototypeOf: (_target, prototype) => Reflect.setPrototypeOf(source, prototype),
+    getPrototypeOf: () => Reflect.getPrototypeOf(source),
   }
 
   return new Proxy(target, handler) as T
 }
-
-const isSolidStoreSymbol = (key: PropertyKey) =>
-  typeof key === 'symbol' &&
-  ['Symbol(solid-proxy)', 'Symbol(store-node)', 'Symbol(store-has)'].includes(String(key))

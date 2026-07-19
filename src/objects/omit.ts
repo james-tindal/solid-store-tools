@@ -12,24 +12,8 @@ type OmitResult<T, K extends PropertyKey> =
     ? ((...args: A) => R) & OmitUnion<T, K>
     : OmitUnion<T, K>
 
-export const omitAccessor = <T extends object, const K extends readonly KeysOfUnion<T>[]>
-  (accessor: () => T, keys: K): OmitResult<T, K[number]> => {
+export const omit = <T extends object, const K extends readonly KeysOfUnion<T>[]>
+  (object: T, keys: K): OmitResult<T, K[number]> => {
     const omitted = new Set<PropertyKey>(keys)
-    return filterKeys(accessor, key => !omitted.has(key)) as unknown as OmitResult<T, K[number]>
+    return filterKeys(object, key => !omitted.has(key)) as unknown as OmitResult<T, K[number]>
   }
-
-export const omitObject = <T extends object, const K extends readonly KeysOfUnion<T>[]>
-  (object: T, keys: K): OmitResult<T, K[number]> =>
-    omitAccessor(() => object, keys)
-
-type OmitOverload = {
-  <T extends object, const K extends KeysOfUnion<T>>
-    (accessor: () => T, keys: readonly K[]): OmitResult<T, K>
-  <T extends object, const K extends KeysOfUnion<T>>
-    (object: T, keys: readonly K[]): OmitResult<T, K>
-}
-
-export const omit: OmitOverload = (objectOrAccessor: any, keys: readonly PropertyKey[]) =>
-  typeof objectOrAccessor === 'function' && objectOrAccessor.length === 0
-    ? omitAccessor(objectOrAccessor, keys as readonly never[])
-    : omitObject(objectOrAccessor, keys as readonly never[])

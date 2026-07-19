@@ -6,11 +6,13 @@ export function getters<const T extends object>(spec: T): DeriveObject<T> {
   return Object.defineProperties(
     {},
     Object.fromEntries(
-      Object.entries(spec).map(([key, value]) => [
+      Object.keys(spec).map(key => [
         key,
-        isAccessor(value)
-          ? { enumerable: true, configurable: true, get: value }
-          : { enumerable: true, configurable: true, value: deriveEntry(value) },
+        {
+          enumerable: true,
+          configurable: true,
+          get: () => deriveEntry(Reflect.get(spec, key)),
+        },
       ])
     )
   ) as DeriveObject<T>
@@ -31,7 +33,7 @@ function isAccessor(value: unknown): value is () => unknown {
 }
 
 function isNonArrayObject(value: unknown): value is object {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+  return value !== null && typeof value === 'object' && !(value instanceof Array)
 }
 
 type DeriveObject<T> =

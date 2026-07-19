@@ -7,7 +7,7 @@ import { omit } from './omit'
 import { pick } from './pick'
 import { switchStore } from './switch-store'
 import { dedupeStore } from './dedupe-store'
-import { Merge } from 'type-fest'
+
 
 const visibleKeys = (object: object) =>
   Reflect.ownKeys(object).filter(key => typeof key === 'string')
@@ -385,7 +385,7 @@ describe('dedupeStore proxy integration', () => {
       hidden: 'second hidden' as string | undefined,
     })
     const [source, setSource] = createSignal(first)
-    const store = dedupeStore(pick(source, ['name']))
+    const store = dedupeStore(pick(objectFromAccessor(source), ['name']))
     const name = track(() => store.name)
     const hasName = track(() => 'name' in store)
     const keys = track(() => visibleKeys(store))

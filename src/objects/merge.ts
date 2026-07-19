@@ -1,4 +1,18 @@
 
+import {
+  dataDescriptorFrom,
+  isSolidStoreMetadataKey,
+  ownKeysWithLocalMetadata,
+  solidStoreMetadataDefineProperty,
+  solidStoreMetadataDeleteProperty,
+  solidStoreMetadataGet,
+  solidStoreMetadataGetOwnPropertyDescriptor,
+  solidStoreMetadataHas,
+  solidStoreMetadataSet,
+  withoutSolidStoreMetadataKeys,
+} from './private-helpers'
+import { WrappedMethods } from './wrapped-methods'
+
 type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
 type OptionalKeys<T extends object> = {
@@ -31,56 +45,102 @@ type MergeObjects<T extends readonly object[]> =
     : {}
 
 export function merge<const T extends readonly object[]>(...objects: T): MergeObjects<T> {
-  const wrapMethod = (key: string | symbol, value: Function) =>
-    Object.assign(function (...args: unknown[]) {
-      const source = findSource(objects, key)
-      const currentValue = source && Reflect.get(source, key, source)
-      return Reflect.apply(currentValue as any, source, args)
-    }, value)
+  const wrappedMethods = new WrappedMethods(key => {
+    const source = findSource(objects, key)
+    return {
+      object: source!,
+      method: Reflect.get(source!, key, source!) as Function,
+    }
+  })
+
+  function descriptorFor(source: object, key: string | symbol) {
+    const descriptor = dataDescriptorFrom(source, key)
+    if (!descriptor) return
+
+    return {
+      ...descriptor,
+      value: wrappedMethods.get(key, descriptor.value),
+    }
+  }
 
   function read(key: string | symbol) {
     const source = findSource(objects, key)
     if (!source) return undefined
 
-    const value = (source as any)[key]
-    if (typeof value === 'function')
-      return wrapMethod(key, value)
-    return value
+    return wrappedMethods.get(key, Reflect.get(source, key, source))
+  }
+
+  function findWriteSource(key: string | symbol) {
+    return findSource(objects, key) ?? objects.at(-1)
   }
 
   return new Proxy({}, {
     get(target, key, receiver) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataGet(target, key)
+
       if (Reflect.has(target, key))
         return Reflect.get(target, key, receiver)
       else
         return read(key)
     },
     has(target, key) {
-      return key in target || findSource(objects, key) !== undefined
+      return isSolidStoreMetadataKey(key)
+        ? solidStoreMetadataHas(target, key)
+        : key in target || findSource(objects, key) !== undefined
     },
     ownKeys(target) {
-      return dedupe([...Reflect.ownKeys(target), ...getMergedPropertyKeys(objects)])
+      return ownKeysWithLocalMetadata(getMergedPropertyKeys(objects), target)
     },
     getOwnPropertyDescriptor(target, key) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataGetOwnPropertyDescriptor(target, key)
+
       const targetDescriptor = Reflect.getOwnPropertyDescriptor(target, key)
       if (targetDescriptor && !targetDescriptor.configurable)
         return targetDescriptor
 
-      if (!findSource(objects, key)) return undefined
+      const source = findSource(objects, key)
+      if (!source) return undefined
 
-      return {
-        enumerable: true,
-        configurable: true,
-        get: () => read(key),
-      }
+      return descriptorFor(source, key)
     },
+    set(target, key, value) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataSet(target, key, value)
+
+      const source = findWriteSource(key)
+      return source
+        ? Reflect.set(source, key, value, source)
+        : false
+    },
+    defineProperty(target, key, descriptor) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataDefineProperty(target, key, descriptor)
+
+      const source = findWriteSource(key)
+      return source
+        ? Reflect.defineProperty(source, key, descriptor)
+        : false
+    },
+    deleteProperty(target, key) {
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataDeleteProperty(target, key)
+
+      const source = findSource(objects, key)
+      return source
+        ? Reflect.deleteProperty(source, key)
+        : true
+    },
+    setPrototypeOf: () => false,
+    preventExtensions: () => false,
   }) as MergeObjects<T>
 }
 
 function findSource(objects: readonly object[], key: string | symbol) {
   for (let i = objects.length - 1; i >= 0; i--) {
     const object = objects[i]!
-    if (getPropertyKeys(object).includes(key))
+    if (key in object)
       return object
   }
 }
@@ -89,19 +149,7 @@ const getMergedPropertyKeys = (objects: readonly object[]) =>
   dedupe(objects.flatMap(getPropertyKeys))
 
 const getPropertyKeys = (object: object) =>
-  dedupe(
-    walkPrototypeChain(object)
-      .flatMap(Reflect.ownKeys)
-  ).filter(key => key !== 'constructor')
-
-function* walkPrototypeChain(object: object) {
-  for (
-    let current: object | null = object;
-    current && current !== Object.prototype;
-    current = Object.getPrototypeOf(current)
-  )
-    yield current
-}
+  withoutSolidStoreMetadataKeys(Reflect.ownKeys(object))
 
 type UnwrapIterable<T extends Iterable<any>> = T extends Iterable<infer X> ? X : never
 const dedupe = <T extends Iterable<any>>(xs: T) => [...new Set<UnwrapIterable<T>>(xs)]

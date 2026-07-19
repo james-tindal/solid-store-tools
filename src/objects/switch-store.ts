@@ -1,42 +1,54 @@
 import { createComputed, createRoot, createSignal, onCleanup, untrack } from 'solid-js'
+import { objectFromAccessor } from './object-from-accessor'
 
 type BranchKey = string | number | symbol
 
-type Selection = BranchKey | readonly [BranchKey, unknown]
+type Selection = BranchKey | [BranchKey, unknown]
 type SelectionKey<T> =
-  T extends readonly [infer K extends BranchKey, unknown] ? K :
+  T extends [infer K extends BranchKey, unknown] ? K :
   T extends BranchKey ? T :
   never
 type SelectionData<T, TKey extends BranchKey> =
-  Extract<T, readonly [TKey, unknown]> extends readonly [TKey, infer TData] ? TData :
+  Extract<T, [TKey, unknown]> extends [TKey, infer TData] ? TData :
   undefined
 
 type BranchEntry<TData> = object | ((data: TData) => object)
 type Branches<TSelection extends Selection> = {
   [K in SelectionKey<TSelection>]: BranchEntry<SelectionData<TSelection, K>>
 }
+type StoreBranches<TSelection extends Selection> = {
+  [K in SelectionKey<TSelection>]: object | ((data: SelectionData<TSelection, K>) => object)
+}
 type BranchResult<T> =
   T extends (...args: any[]) => infer TResult ? TResult : T
-type StoreResult<T> =
+type MutableResult<T> =
   T extends (...args: any[]) => any ? T :
-  T extends readonly (infer U)[]
+  T extends (infer U)[]
     ? number extends T['length']
-      ? Array<StoreResult<U>>
-      : { -readonly [K in keyof T]: StoreResult<T[K]> } :
-  T extends object ? { -readonly [K in keyof T]: StoreResult<T[K]> } :
+      ? Array<MutableResult<U>>
+      : { -readonly [K in keyof T]: MutableResult<T[K]> } :
+  T extends object ? { -readonly [K in keyof T]: MutableResult<T[K]> } :
   T
 
-export function switchStore<const TSelection extends Selection, const TBranches extends Branches<TSelection>>(
-  pick: () => TSelection,
+export function switchStore<const TSelection extends Selection, const TBranches extends StoreBranches<TSelection>>(
+  pickBranch: () => TSelection,
   branches: TBranches,
-): StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>> {
-  type Store = StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>> & object
-  const [store, setStore] = createSignal<Store>({} as Store, { equals: false })
+): MutableResult<BranchResult<TBranches[SelectionKey<TSelection>]>> {
+  return objectFromAccessor(switchAccessor(pickBranch, branches) as any) as MutableResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
+}
+
+export function switchAccessor<const TSelection extends Selection, const TBranches extends Branches<TSelection>>(
+  pickBranch: () => TSelection,
+  branches: TBranches,
+): () => MutableResult<BranchResult<TBranches[SelectionKey<TSelection>]>> {
+  type Result = MutableResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
+  const [branchKey, setBranchKey] = createSignal<BranchKey>()
   let disposeBranch: (() => void) | undefined
   let key: BranchKey | undefined
+  let current: Result
 
   createComputed(() => {
-    const selection = normalizeSelection(pick())
+    const selection = normalizeSelection(pickBranch())
     if (selection.key === key) return
 
     untrack(() => {
@@ -45,58 +57,25 @@ export function switchStore<const TSelection extends Selection, const TBranches 
       createRoot(dispose => {
         disposeBranch = dispose
         const entry = branches[selection.key as SelectionKey<TSelection>]
-        const spec = typeof entry === 'function'
-          ? entry(selection.data as never)
-          : entry
-
-        setStore(() => spec as Store)
+        current = resolveBranch(entry, selection.data)
+        setBranchKey(() => selection.key)
       })
     })
   })
 
   onCleanup(() => disposeBranch?.())
 
-  return new Proxy({} as Store, {
-    get: (target, key) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.get(target, key)
-        : store()[key as keyof Store],
-    has: (target, key) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.has(target, key)
-        : key in store(),
-    ownKeys: target =>
-      dedupe([
-        ...Reflect.ownKeys(store()),
-        ...Reflect.ownKeys(target),
-      ]),
-    getOwnPropertyDescriptor: (target, key) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.getOwnPropertyDescriptor(target, key)
-        : Reflect.getOwnPropertyDescriptor(store(), key),
-    set: (target, key, value) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.set(target, key, value)
-        : Reflect.set(store(), key, value),
-    defineProperty: (target, key, descriptor) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.defineProperty(target, key, descriptor)
-        : Reflect.defineProperty(store(), key, descriptor),
-    deleteProperty: (target, key) =>
-      isSolidStoreSymbol(key)
-        ? Reflect.deleteProperty(target, key)
-        : Reflect.deleteProperty(store(), key),
-  }) as StoreResult<BranchResult<TBranches[SelectionKey<TSelection>]>>
+  return () => {
+    branchKey()
+    return current
+  }
 }
 
-const isSolidStoreSymbol = (key: PropertyKey) =>
-  typeof key === 'symbol' &&
-  ['Symbol(solid-proxy)', 'Symbol(store-node)', 'Symbol(store-has)'].includes(String(key))
-
-const dedupe = <T>(values: T[]) => [...new Set(values)]
-
-function normalizeSelection(selection: Selection) {
+function normalizeSelection(selection: Selection): any {
   return Array.isArray(selection)
     ? { key: selection[0], data: selection[1] }
     : { key: selection, data: undefined }
 }
+
+const resolveBranch = <TData>(entry: BranchEntry<TData>, data: TData) =>
+  typeof entry === 'function' ? entry(data) : entry
