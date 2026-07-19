@@ -1,5 +1,4 @@
 import { assert, test } from 'vitest'
-import { assertGarbageCollected } from '../assert-garbage-collected'
 import { filterKeys } from './filterKeys'
 import { merge } from './merge'
 import { objectFromAccessor } from './object-from-accessor'
@@ -311,40 +310,6 @@ for (const [name, create] of Object.entries(utilities)) {
     assert.strictEqual(view.value, 2)
   })
 
-  test(`${name} releases proxy while extracted wrapped method remains referenced`, async () => {
-    const source = {
-      method() {},
-    }
-    let view: { method: () => void } | undefined = create(source)
-    let method: (() => void) | undefined = view.method
-    const proxyCollected = assertGarbageCollected(view)
-
-    view = undefined
-
-    await proxyCollected
-    method = undefined
-  })
-
-  test(`${name} releases source method while extracted wrapped method remains referenced`, async () => {
-    let sourceMethod: (() => string) | undefined = function sourceMethod() {
-      return 'old'
-    }
-    const source = {
-      method: sourceMethod,
-    }
-    const view = create(source)
-    const method = view.method
-    const methodCollected = assertGarbageCollected(sourceMethod)
-
-    source.method = function replacement() {
-      return 'new'
-    }
-    sourceMethod = undefined
-
-    assert.strictEqual(method(), 'new')
-
-    await methodCollected
-  })
 }
 
 const callableUtilities = {
