@@ -24,7 +24,7 @@ importers:
         specifier: ^5.5.0
         version: 5.9.0
       typescript:
-        specifier: ^6.0.2
+        specifier: ^6.0.3
         version: 6.0.3
       vite-plugin-solid:
         specifier: ^2.11.14
