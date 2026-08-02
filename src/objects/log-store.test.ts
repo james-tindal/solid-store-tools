@@ -3,6 +3,7 @@ import { createMutable } from 'solid-js/store'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { assertGarbageCollected } from '../assert-garbage-collected'
 import { logStore, type LogStoreEvent } from './log-store'
+import { assertLength } from '../utilities'
 
 const { expect: expectLogged, ...loggedEvents } = {
   checkedCalls: 0,
@@ -156,6 +157,7 @@ describe('logStore', () => {
 
     logStore(store)
 
+    assertLength(store.players, 2)
     store.players[1].money = 250
 
     expectLogged(
