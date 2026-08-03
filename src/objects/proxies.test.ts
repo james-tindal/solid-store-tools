@@ -309,7 +309,6 @@ for (const [name, create] of Object.entries(utilities)) {
 
     assert.strictEqual(view.value, 2)
   })
-
 }
 
 const callableUtilities = {

@@ -253,7 +253,7 @@ describe('logStore', () => {
     const collected = createRoot(dispose => {
       disposeRoot = dispose
 
-      let oldBranch: { nested: { value: string } } | undefined = {
+      let oldBranch: { nested: { value: string }} | undefined = {
         nested: {
           value: 'old',
         },
@@ -286,13 +286,13 @@ describe('logStore', () => {
     const collected = createRoot(dispose => {
       disposeRoot = dispose
 
-      let oldBranch: { nested: { value: string } } | undefined = {
+      let oldBranch: { nested: { value: string }} | undefined = {
         nested: {
           value: 'old',
         },
       }
       const store = createMutable({
-        branch: oldBranch as { nested: { value: string } } | undefined,
+        branch: oldBranch as { nested: { value: string }} | undefined,
       })
       const collected = assertGarbageCollected(oldBranch)
 

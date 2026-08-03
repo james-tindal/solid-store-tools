@@ -31,7 +31,7 @@ test('switchStore exposes the current branch through an object proxy', () => cre
 
 test('switchStore uses objectFromAccessor view semantics', () => createRoot(dispose => {
   const [selected, setSelected] = createSignal(false)
-  const selectedData = { nested: { count: 1 } }
+  const selectedData = { nested: { count: 1 }}
   const store = switchStore(
     () => selected() ? 'selected' as const : 'empty' as const,
     {

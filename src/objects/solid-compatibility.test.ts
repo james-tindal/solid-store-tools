@@ -28,11 +28,11 @@ const utilityBlock = <Source extends object>(source: Source) => ({
 })
 
 const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
-  get(target, key, receiver) {
+  get(target, key,) {
     if (isMetadataKey(key))
       throw Error(`get trap received ${metadataKeyToString(key)}`)
   },
-  set(target, key, value, receiver) {
+  set(target, key) {
     if (isMetadataKey(key))
       throw Error(`set trap received ${metadataKeyToString(key)}`)
     return true
@@ -42,7 +42,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
       throw Error(`has trap received ${metadataKeyToString(key)}`)
     return true
   },
-  defineProperty(target, key, descriptor) {
+  defineProperty(target, key) {
     if (isMetadataKey(key))
       throw Error(`defineProperty trap received ${metadataKeyToString(key)}`)
     return true
@@ -59,7 +59,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 })
 
 // All do not delegate metadata keys to source
-;{
+{
   const testAllSymbols = (create: () => object) =>
     Object.values(metadataKeys)
       .forEach(symbol => testAllTraps(create, symbol))
@@ -78,7 +78,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All do not report Solid metadata ownKeys from sources
-;{
+{
   for (const [name, create] of Object.entries(utilityBlock(objectWithMetadata))) {
     const it = create()
 
@@ -89,7 +89,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All support Solid metadata keys
-;{
+{
   const hostedMetadataKeys = { $PROXY, $NODE, $HAS }
 
   const testHostedSymbols = (it: object) =>
@@ -122,7 +122,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All follow local descriptor rules for Solid metadata keys
-;{
+{
   const testMutableMetadataSymbol = (create: () => object, symbol: symbol) => {
     const it = create()
     const initial = {}
@@ -170,7 +170,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All can be used as Solid store roots
-;{
+{
   for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
     test(`${name} can be used as Solid store root`, () => {
       const [store] = createRootDisposed(() => createStore(create()))
@@ -180,7 +180,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All can be added to a Solid store
-;{
+{
   for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
     test(`${name} can be added to a Solid store`, () => {
       const value = create()
@@ -198,7 +198,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All report source data properties as data descriptors
-;{
+{
   for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
     test(`${name} reports source data properties as data descriptors`, () => {
       const descriptor = Reflect.getOwnPropertyDescriptor(create(), 'value')
@@ -212,7 +212,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 }
 
 // All report source accessor properties as data descriptors
-;{
+{
   const source = {
     get value() {
       return 'value'
@@ -237,7 +237,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 function getSymbols() {
   const symbols = new Set<symbol>()
   const MetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
-    defineProperty(target, key, descriptor) {
+    defineProperty(target, key) {
       symbols.add(key as symbol)
       return true
     },

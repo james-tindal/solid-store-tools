@@ -1,4 +1,4 @@
-import { createComputed, createRoot, on, onCleanup, untrack } from 'solid-js'
+import { createComputed, createRoot, on, onCleanup } from 'solid-js'
 
 export type LogStoreEvent =
 | {

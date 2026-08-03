@@ -2,6 +2,7 @@
   "name": "solid-objects",
   "version": "0.1.0",
   "dependencies": {
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.5.1",
     "eslint": "^9.34.0",
     "jiti": "^2.7.0",

@@ -5,6 +5,8 @@ import { createMutable, createStore } from 'solid-js/store'
 import { merge } from './merge'
 import { createRootDisposed, createRootDisposeLater } from '../createRootDisposed'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false
@@ -81,7 +83,7 @@ test('switchAccessor switches branch when key changes', () => createRootDisposed
 
 test('switchAccessor passes branch data through by reference instead of reconciling it', () => createRootDisposed(() => {
   const [selected, setSelected] = createSignal(false)
-  const data = { nested: { count: 1 } }
+  const data = { nested: { count: 1 }}
 
   const current = switchAccessor(
     () => selected() ? 'selected' as const : 'empty' as const,
@@ -208,7 +210,6 @@ test('switchAccessor eagerly disposes the previous branch when selection changes
 
   assert.strictEqual(aCleanups, 1)
   assert.strictEqual(bRuns, 1)
-
 }))
 
 test('switchAccessor eagerly creates the selected branch before it is read', () => createRootDisposed(() => {
@@ -228,7 +229,6 @@ test('switchAccessor eagerly creates the selected branch before it is read', () 
   setSelection('b')
 
   assert.strictEqual(bRuns, 1)
-
 }))
 
 test('switchAccessor does not recreate the branch when only selection data changes', () => createRootDisposed(() => {
@@ -252,7 +252,6 @@ test('switchAccessor does not recreate the branch when only selection data chang
 
   assert.strictEqual(runs, 1)
   assert.strictEqual(current().value, 1)
-
 }))
 
 test('switchAccessor disposes the active branch when the parent root is disposed', () => {
@@ -290,7 +289,6 @@ test('switchAccessor returns an accessor to the current branch', () => createRoo
   setSelection('b')
 
   assert.strictEqual(current().value, 'b')
-
 }))
 
 test('switchAccessor returns a reactive accessor', () => createRootDisposed(() => {
@@ -310,5 +308,4 @@ test('switchAccessor returns a reactive accessor', () => createRootDisposed(() =
   setSelection('b')
 
   assert.deepStrictEqual(values, ['a', 'b'])
-
 }))
