@@ -1,12 +1,14 @@
 import { $PROXY, createComputed, createRoot } from 'solid-js'
 import { $RAW, createStore } from 'solid-js/store'
-import { assert, test } from 'vitest'
+import { afterEach, assert, test } from 'vitest'
 import { merge } from './merge'
 import { filterKeys } from './filterKeys'
 import { objectFromAccessor } from './object-from-accessor'
 import { switchStore } from './switch-store'
 import { assertExists } from '../utilities'
-import { createRootDisposed } from '../createRootDisposed'
+import { testRoot } from '../solid-root'
+
+afterEach(() => testRoot.dispose())
 
 
 const { $NODE, $HAS } = getSymbols()
@@ -23,7 +25,7 @@ const utilityBlock = <Source extends object>(source: Source) => ({
   objectFromAccessor: () => objectFromAccessor(() => source),
   filterKeys: () => filterKeys(source, () => true),
   merge: () => merge(source),
-  switchStore: () => createRootDisposed(() =>
+  switchStore: () => testRoot(() =>
     switchStore(() => 'selected', { selected: source })),
 })
 
@@ -173,7 +175,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 {
   for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
     test(`${name} can be used as Solid store root`, () => {
-      const [store] = createRootDisposed(() => createStore(create()))
+      const [store] = testRoot(() => createStore(create()))
 
       assert.strictEqual((store as any).value, 'value')
     })
@@ -187,7 +189,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
       const [store, setStore] = createStore({ data: undefined as typeof value | undefined })
 
       assert.doesNotThrow(() => setStore({ data: value }))
-      createRootDisposed(() => createComputed(() => {
+      testRoot(() => createComputed(() => {
         assertExists(store.data)
         // Register all 3 subscription types
         'value' in store.data

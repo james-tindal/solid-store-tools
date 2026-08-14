@@ -1,9 +1,11 @@
 import { createComputed, createSignal, onCleanup } from 'solid-js'
-import { assert, test } from 'vitest'
+import { afterEach, assert, test } from 'vitest'
 import { switchAccessor } from './switch-store'
 import { createMutable, createStore } from 'solid-js/store'
 import { merge } from './merge'
-import { createRootDisposed, createRootDisposeLater } from '../createRootDisposed'
+import { testRoot } from '../solid-root'
+
+afterEach(() => testRoot.dispose())
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
@@ -12,7 +14,7 @@ type Equal<X, Y> =
   (<T>() => T extends Y ? 1 : 2) ? true : false
 const assertType = <T extends true>() => {}
 
-test('switchAccessor narrows branch data by key', () => createRootDisposed(() => {
+test('switchAccessor narrows branch data by key', () => testRoot(() => {
   const current = switchAccessor(
     () => Math.random() > 0.5
       ? 'empty' as const
@@ -29,7 +31,7 @@ test('switchAccessor narrows branch data by key', () => createRootDisposed(() =>
   assertType<Equal<ReturnType<typeof current>, { view: 'empty' } | { view: 'selected', value: number }>>()
 }))
 
-test('switchAccessor preserves tuple types', () => createRootDisposed(() => {
+test('switchAccessor preserves tuple types', () => testRoot(() => {
   const current = switchAccessor(
     () => 'selected' as const,
     {
@@ -46,7 +48,7 @@ test('switchAccessor preserves tuple types', () => createRootDisposed(() => {
   assertType<Equal<ReturnType<typeof current>['nested']['triple'], [number, number, number]>>()
 }))
 
-test('switchAccessor selects a branch by key and passes its data', () => createRootDisposed(() => {
+test('switchAccessor selects a branch by key and passes its data', () => testRoot(() => {
   const current = switchAccessor(
     () => ['selected', { value: 100 }] satisfies ['selected', { value: number }],
     {
@@ -61,7 +63,7 @@ test('switchAccessor selects a branch by key and passes its data', () => createR
   assert.strictEqual(current().value, 100)
 }))
 
-test('switchAccessor switches branch when key changes', () => createRootDisposed(() => {
+test('switchAccessor switches branch when key changes', () => testRoot(() => {
   const [selected, setSelected] = createSignal(false)
   const current = switchAccessor(
     () => selected()
@@ -81,7 +83,7 @@ test('switchAccessor switches branch when key changes', () => createRootDisposed
   assert.strictEqual('value' in current() ? (current() as any).value : undefined, 100)
 }))
 
-test('switchAccessor passes branch data through by reference instead of reconciling it', () => createRootDisposed(() => {
+test('switchAccessor passes branch data through by reference instead of reconciling it', () => testRoot(() => {
   const [selected, setSelected] = createSignal(false)
   const data = { nested: { count: 1 }}
 
@@ -100,7 +102,7 @@ test('switchAccessor passes branch data through by reference instead of reconcil
   assert.strictEqual((current() as any).data.nested, data.nested)
 }))
 
-test('switchAccessor passes merged proxy data containing Solid stores without unwrapping it', () => createRootDisposed(() => {
+test('switchAccessor passes merged proxy data containing Solid stores without unwrapping it', () => testRoot(() => {
   const [selected, setSelected] = createSignal(false)
   const source = createMutable({ value: 'initial' })
   const [nestedStore] = createStore(source)
@@ -125,7 +127,7 @@ test('switchAccessor passes merged proxy data containing Solid stores without un
   assert.strictEqual((current() as any).data.nestedStore.value, 'updated')
 }))
 
-test('branch data functions can update the reactive source used by the picker', () => createRootDisposed(() => {
+test('branch data functions can update the reactive source used by the picker', () => testRoot(() => {
   const toggle = createMutable({
     enabled: false,
     enable() {
@@ -158,7 +160,7 @@ test('branch data functions can update the reactive source used by the picker', 
   assert.strictEqual(current().view, 'enabled')
 }))
 
-test('plain branch body dependencies are snapshots', () => createRootDisposed(() => {
+test('plain branch body dependencies are snapshots', () => testRoot(() => {
   const [value, setValue] = createSignal(10_000)
   let picks = 0
   let branchRuns = 0
@@ -187,7 +189,7 @@ test('plain branch body dependencies are snapshots', () => createRootDisposed(()
   assert.strictEqual(branchRuns, 1)
 }))
 
-test('switchAccessor eagerly disposes the previous branch when selection changes without another read', () => createRootDisposed(() => {
+test('switchAccessor eagerly disposes the previous branch when selection changes without another read', () => testRoot(() => {
   const [selection, setSelection] = createSignal<'a' | 'b'>('a')
   let aCleanups = 0
   let bRuns = 0
@@ -212,7 +214,7 @@ test('switchAccessor eagerly disposes the previous branch when selection changes
   assert.strictEqual(bRuns, 1)
 }))
 
-test('switchAccessor eagerly creates the selected branch before it is read', () => createRootDisposed(() => {
+test('switchAccessor eagerly creates the selected branch before it is read', () => testRoot(() => {
   const [selection, setSelection] = createSignal<'a' | 'b'>('a')
   let bRuns = 0
 
@@ -231,7 +233,7 @@ test('switchAccessor eagerly creates the selected branch before it is read', () 
   assert.strictEqual(bRuns, 1)
 }))
 
-test('switchAccessor does not recreate the branch when only selection data changes', () => createRootDisposed(() => {
+test('switchAccessor does not recreate the branch when only selection data changes', () => testRoot(() => {
   const [value, setValue] = createSignal(1)
   let runs = 0
 
@@ -257,7 +259,7 @@ test('switchAccessor does not recreate the branch when only selection data chang
 test('switchAccessor disposes the active branch when the parent root is disposed', () => {
   let cleanups = 0
 
-  const { dispose } = createRootDisposeLater(() => {
+  testRoot(() => {
     switchAccessor(
       () => 'selected' as const,
       {
@@ -271,13 +273,13 @@ test('switchAccessor disposes the active branch when the parent root is disposed
 
   assert.strictEqual(cleanups, 0)
 
-  dispose()
+  testRoot.dispose()
 
   assert.strictEqual(cleanups, 1)
 }
 )
 
-test('switchAccessor returns an accessor to the current branch', () => createRootDisposed(() => {
+test('switchAccessor returns an accessor to the current branch', () => testRoot(() => {
   const [selection, setSelection] = createSignal<'a' | 'b'>('a')
   const current = switchAccessor(selection, {
     a: { value: 'a' },
@@ -291,7 +293,7 @@ test('switchAccessor returns an accessor to the current branch', () => createRoo
   assert.strictEqual(current().value, 'b')
 }))
 
-test('switchAccessor returns a reactive accessor', () => createRootDisposed(() => {
+test('switchAccessor returns a reactive accessor', () => testRoot(() => {
   const [selection, setSelection] = createSignal<'a' | 'b'>('a')
   const values: string[] = []
   const current = switchAccessor(selection, {

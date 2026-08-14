@@ -1,8 +1,10 @@
-import { describe, it, expect, expectTypeOf } from 'vitest'
+import { afterEach, describe, it, expect, expectTypeOf } from 'vitest'
 import { createSignal } from 'solid-js'
 import { assertGarbageCollected } from '../assert-garbage-collected'
 import { objectFromAccessor } from './object-from-accessor'
-import { createRootDisposed } from '../createRootDisposed'
+import { testRoot } from '../solid-root'
+
+afterEach(() => testRoot.dispose())
 
 describe('objectFromAccessor', () => {
   it('returns a proxy typed as the object returned by the accessor', () => {
@@ -334,7 +336,7 @@ describe('objectFromAccessor', () => {
       configurable: true,
       writable: true,
     })
-    const [source, setSource] = createRootDisposed(() => createSignal(first))
+    const [source, setSource] = testRoot(() => createSignal(first))
     const proxy = objectFromAccessor(source)
 
     expect(proxy.name).toBe('Ada')
