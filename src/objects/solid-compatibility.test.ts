@@ -183,19 +183,23 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 
 // All can be added to a Solid store
 {
-  for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
+  for (const name of Object.keys(utilityBlock({ value: 'value' })))
     test(`${name} can be added to a Solid store`, () => {
+      const [source, setSource] = createStore({ value: 'value' })
+      const create = utilityBlock(source)[name as keyof ReturnType<typeof utilityBlock>]
       const value = create()
       const [store, setStore] = createStore({ data: undefined as typeof value | undefined })
 
       assert.doesNotThrow(() => setStore({ data: value }))
-      testRoot(() => createComputed(() => {
-        assertExists(store.data)
-        // Register all 3 subscription types
-        'value' in store.data
-        Reflect.ownKeys(store.data)
-        assert.strictEqual(store.data.value, 'value')
-      }))
+      assertExists(store.data)
+      // Register all 3 subscription types
+      'value' in store.data
+      Reflect.ownKeys(store.data)
+      const observed = store.data.value
+
+      assert.strictEqual(observed, 'value')
+      setSource('value', 'updated')
+      assert.strictEqual(observed, 'updated')
     })
 }
 
