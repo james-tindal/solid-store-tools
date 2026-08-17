@@ -1,3 +1,4 @@
+import { $PROXY } from 'solid-js'
 import {
   dataDescriptorFrom,
   isSolidStoreMetadataKey,
@@ -77,7 +78,10 @@ export function filterKeys<T extends object>(source: T, allows: (key: string | s
         return false
     },
 
-    get(target, key) {
+    get(target, key, receiver) {
+      if (key === $PROXY)
+        return receiver
+
       if (isSolidStoreMetadataKey(key))
         return solidStoreMetadataGet(target, key)
 
@@ -98,9 +102,11 @@ export function filterKeys<T extends object>(source: T, allows: (key: string | s
     },
 
     has(target, key) {
-      return isSolidStoreMetadataKey(key)
-        ? solidStoreMetadataHas(target, key)
-        : allows(key, source) && key in source
+      return key === $PROXY
+        ? true
+        : isSolidStoreMetadataKey(key)
+          ? solidStoreMetadataHas(target, key)
+          : allows(key, source) && key in source
     },
 
     ownKeys() {

@@ -1,4 +1,5 @@
 
+import { $PROXY } from 'solid-js'
 import {
   dataDescriptorFrom,
   isSolidStoreMetadataKey,
@@ -76,6 +77,9 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
 
   return new Proxy({}, {
     get(target, key, receiver) {
+      if (key === $PROXY)
+        return receiver
+
       if (isSolidStoreMetadataKey(key))
         return solidStoreMetadataGet(target, key)
 
@@ -85,9 +89,11 @@ export function merge<const T extends readonly object[]>(...objects: T): MergeOb
         return read(key)
     },
     has(target, key) {
-      return isSolidStoreMetadataKey(key)
-        ? solidStoreMetadataHas(target, key)
-        : key in target || findSource(objects, key) !== undefined
+      return key === $PROXY
+        ? true
+        : isSolidStoreMetadataKey(key)
+          ? solidStoreMetadataHas(target, key)
+          : key in target || findSource(objects, key) !== undefined
     },
     ownKeys(target) {
       return ownKeysWithLocalMetadata(getMergedPropertyKeys(objects), target)

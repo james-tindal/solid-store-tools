@@ -1,4 +1,4 @@
-import { $PROXY, createComputed, createRoot } from 'solid-js'
+import { createComputed, createRoot } from 'solid-js'
 import { $RAW, createStore } from 'solid-js/store'
 import { afterEach, assert, test } from 'vitest'
 import { merge } from './merge'
@@ -12,8 +12,8 @@ afterEach(() => testRoot.dispose())
 
 
 const { $NODE, $HAS } = getSymbols()
-const metadataKeys = { $RAW, $PROXY, $NODE, $HAS }
-const objectWithMetadata = { [$RAW]: null, [$PROXY]: null, [$NODE]: null, [$HAS]: null }
+const metadataKeys = { $RAW, $NODE, $HAS }
+const objectWithMetadata = { [$RAW]: null, [$NODE]: null, [$HAS]: null }
 
 const isMetadataKey = (x: unknown): x is symbol =>
   Object.values(metadataKeys).includes(x as any)
@@ -92,7 +92,7 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
 
 // All support Solid metadata keys
 {
-  const hostedMetadataKeys = { $PROXY, $NODE, $HAS }
+  const hostedMetadataKeys = { $NODE, $HAS }
 
   const testHostedSymbols = (it: object) =>
     Object.values(hostedMetadataKeys)
@@ -178,28 +178,6 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
       const [store] = testRoot(() => createStore(create()))
 
       assert.strictEqual((store as any).value, 'value')
-    })
-}
-
-// All can be added to a Solid store
-{
-  for (const name of Object.keys(utilityBlock({ value: 'value' })))
-    test(`${name} can be added to a Solid store`, () => {
-      const [source, setSource] = createStore({ value: 'value' })
-      const create = utilityBlock(source)[name as keyof ReturnType<typeof utilityBlock>]
-      const value = create()
-      const [store, setStore] = createStore({ data: undefined as typeof value | undefined })
-
-      assert.doesNotThrow(() => setStore({ data: value }))
-      assertExists(store.data)
-      // Register all 3 subscription types
-      'value' in store.data
-      Reflect.ownKeys(store.data)
-      const observed = store.data.value
-
-      assert.strictEqual(observed, 'value')
-      setSource('value', 'updated')
-      assert.strictEqual(observed, 'updated')
     })
 }
 

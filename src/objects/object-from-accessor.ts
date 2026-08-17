@@ -1,3 +1,4 @@
+import { $PROXY } from 'solid-js'
 import {
   dataDescriptorFrom,
   isSolidStoreMetadataKey,
@@ -58,7 +59,10 @@ export function objectFromAccessor<T extends object>(accessor: () => T): T {
         ? solidStoreMetadataDeleteProperty(target, key)
         : Reflect.deleteProperty(getObject(), key),
 
-    get(target, key) {
+    get(target, key, receiver) {
+      if (key === $PROXY)
+        return receiver
+
       if (isSolidStoreMetadataKey(key))
         return solidStoreMetadataGet(target, key)
 
@@ -78,9 +82,11 @@ export function objectFromAccessor<T extends object>(accessor: () => T): T {
     },
 
     has: (target, key) =>
-      isSolidStoreMetadataKey(key)
-        ? solidStoreMetadataHas(target, key)
-        : key in getObject(),
+      key === $PROXY
+        ? true
+        : isSolidStoreMetadataKey(key)
+          ? solidStoreMetadataHas(target, key)
+          : key in getObject(),
 
     ownKeys: target =>
       ownKeysWithLocalMetadata(Reflect.ownKeys(getObject()), target),
