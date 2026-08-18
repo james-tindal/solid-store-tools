@@ -181,6 +181,27 @@ const RejectMetadataKeys = new Proxy({} as { [Key: symbol]: never }, {
     })
 }
 
+// All cannot be added to a Solid store
+{
+  for (const name of Object.keys(utilityBlock({ value: 'value' })))
+    test(`${name} cannot be added to a Solid store`, () => {
+      const [source, setSource] = createStore({ value: 'value' })
+      const create = utilityBlock(source)[name as keyof ReturnType<typeof utilityBlock>]
+      const value = create()
+      const [store, setStore] = createStore({ data: undefined as typeof value | undefined })
+
+      setStore({ data: value })
+      assertExists(store.data)
+      'value' in store.data
+      Reflect.ownKeys(store.data)
+      const observed = store.data.value
+
+      assert.strictEqual(observed, 'value')
+      setSource('value', 'updated')
+      assert.notStrictEqual(observed, 'updated')
+    })
+}
+
 // All report source data properties as data descriptors
 {
   for (const [name, create] of Object.entries(utilityBlock({ value: 'value' })))
