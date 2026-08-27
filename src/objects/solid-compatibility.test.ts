@@ -1,4 +1,4 @@
-import { createComputed, createRoot } from 'solid-js'
+import { createComputed } from 'solid-js'
 import { $RAW, createStore } from 'solid-js/store'
 import { afterEach, assert, test } from 'vitest'
 import { merge } from './merge'
@@ -252,7 +252,7 @@ function getSymbols() {
 
   setStore({ data: MetadataKeys })
 
-  createRoot(dispose => createComputed(() => {
+  testRoot(dispose => createComputed(() => {
     (store.data as any).value
     'value' in store.data
     dispose()

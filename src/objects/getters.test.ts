@@ -1,9 +1,10 @@
 import { assert, expectTypeOf, test } from 'vitest'
-import { createComputed, createRoot, createSignal } from 'solid-js'
+import { createComputed, createSignal } from 'solid-js'
+import { testRoot } from '../solid-root'
 import { createStore } from 'solid-js/store'
 import { getters } from './getters'
 
-test('getters() exposes derived entries as properties', () => createRoot(dispose => {
+test('getters() exposes derived entries as properties', () => testRoot(() => {
   const [count, setCount] = createSignal(1)
   const object = getters({
     count,
@@ -16,7 +17,6 @@ test('getters() exposes derived entries as properties', () => createRoot(dispose
   setCount(2)
 
   assert.strictEqual(object.count, 2)
-  dispose()
 }))
 
 test('getters() evaluates derived entries lazily', () => {
@@ -107,7 +107,7 @@ test('getters() types match runtime arity rule', () => {
   expectTypeOf(object.nested.items).toEqualTypeOf<readonly [() => number]>()
 })
 
-test('getters() tracks source dependencies from the read site', () => createRoot(dispose => {
+test('getters() tracks source dependencies from the read site', () => testRoot(() => {
   const [count, setCount] = createSignal(1)
   const object = getters({
     count,
@@ -124,10 +124,9 @@ test('getters() tracks source dependencies from the read site', () => createRoot
   setCount(2)
 
   assert.deepStrictEqual(seen, [1, 2])
-  dispose()
 }))
 
-test('getters() recurses into object entries and retains arrays', () => createRoot(dispose => {
+test('getters() recurses into object entries and retains arrays', () => testRoot(() => {
   const [value, setValue] = createSignal(10_000)
   const items = [{ value }]
   const object = getters({
@@ -148,10 +147,9 @@ test('getters() recurses into object entries and retains arrays', () => createRo
 
   assert.strictEqual(object.item.value, 9_900)
   assert.strictEqual(object.items[0]!.value(), 9_900)
-  dispose()
 }))
 
-test('getters() properties are enumerable and spread current values', () => createRoot(dispose => {
+test('getters() properties are enumerable and spread current values', () => testRoot(() => {
   const [count, setCount] = createSignal(1)
   const object = getters({
     count,
@@ -164,7 +162,6 @@ test('getters() properties are enumerable and spread current values', () => crea
   setCount(2)
 
   assert.deepStrictEqual({ ...object }, { count: 2, label: 'chips' })
-  dispose()
 }))
 
 test('getters() all entries are accessors', () => {

@@ -1,4 +1,5 @@
-import { createComputed, createRoot, createSignal } from 'solid-js'
+import { createComputed, createSignal } from 'solid-js'
+import { testRoot } from '../solid-root'
 import { createMutable } from 'solid-js/store'
 import { assert, describe, test } from 'vitest'
 import { merge } from './merge'
@@ -27,7 +28,7 @@ function track<T>(read: () => T) {
 }
 
 describe('dedupeStore proxy integration', () => {
-  test('dedupes pick ownKeys subscriptions to selected entries', () => createRoot(dispose => {
+  test('dedupes pick ownKeys subscriptions to selected entries', () => testRoot(() => {
     const source = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'secret' as string | undefined,
@@ -59,11 +60,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.deepStrictEqual(keys, [])
     assert.strictEqual(runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes omit ownKeys subscriptions to remaining entries', () => createRoot(dispose => {
+  test('dedupes omit ownKeys subscriptions to remaining entries', () => testRoot(() => {
     const source = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'secret' as string | undefined,
@@ -95,11 +94,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.deepStrictEqual(keys, [])
     assert.strictEqual(runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes merge ownKeys subscriptions to the winning merged surface', () => createRoot(dispose => {
+  test('dedupes merge ownKeys subscriptions to the winning merged surface', () => testRoot(() => {
     const base = createMutable({
       hidden: 'base' as string | undefined,
       value: 'base' as string | undefined,
@@ -133,11 +130,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.deepStrictEqual(keys, ['hidden'])
     assert.strictEqual(runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes objectFromAccessor ownKeys subscriptions to the current accessed store', () => createRoot(dispose => {
+  test('dedupes objectFromAccessor ownKeys subscriptions to the current accessed store', () => testRoot(() => {
     const storeSource = createMutable({
       name: 'Ada' as string | undefined,
       active: true as boolean | undefined,
@@ -163,11 +158,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.deepStrictEqual(keys, ['name'])
     assert.strictEqual(runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes switchStore ownKeys subscriptions to the selected branch surface', () => createRoot(dispose => {
+  test('dedupes switchStore ownKeys subscriptions to the selected branch surface', () => testRoot(() => {
     const selection = createMutable({
       selected: false,
     })
@@ -193,11 +186,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.deepStrictEqual(keys, ['view', 'value'])
     assert.strictEqual(runs, 2)
-
-    dispose()
   }))
 
-  test('tracks only the queried key for in subscribers', () => createRoot(dispose => {
+  test('tracks only the queried key for in subscribers', () => testRoot(() => {
     const source = createMutable({
       name: 'Ada' as string | undefined,
       active: true as boolean | undefined,
@@ -227,11 +218,9 @@ describe('dedupeStore proxy integration', () => {
 
     assert.isFalse(hasName)
     assert.strictEqual(runs, 2)
-
-    dispose()
   }))
 
-  test('dedupes pick subscriptions across reads, in checks, and ownKeys', () => createRoot(dispose => {
+  test('dedupes pick subscriptions across reads, in checks, and ownKeys', () => testRoot(() => {
     const source = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'secret' as string | undefined,
@@ -283,11 +272,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(name.runs, 3)
     assert.strictEqual(hasName.runs, 2)
     assert.strictEqual(keys.runs, 4)
-
-    dispose()
   }))
 
-  test('dedupes omit subscriptions across reads, in checks, and ownKeys', () => createRoot(dispose => {
+  test('dedupes omit subscriptions across reads, in checks, and ownKeys', () => testRoot(() => {
     const source = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'secret' as string | undefined,
@@ -324,11 +311,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(name.runs, 2)
     assert.strictEqual(hasName.runs, 2)
     assert.strictEqual(keys.runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes merge subscriptions for shadowed, winning, and fallback entries', () => createRoot(dispose => {
+  test('dedupes merge subscriptions for shadowed, winning, and fallback entries', () => testRoot(() => {
     const base = createMutable({
       value: 'base' as string | undefined,
       baseOnly: 'base only' as string | undefined,
@@ -371,11 +356,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(value.runs, 3)
     assert.strictEqual(hasValue.runs, 1)
     assert.strictEqual(keys.runs, 4)
-
-    dispose()
   }))
 
-  test('dedupes accessor source replacement for picked views', () => createRoot(dispose => {
+  test('dedupes accessor source replacement for picked views', () => testRoot(() => {
     const first = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'first hidden' as string | undefined,
@@ -423,11 +406,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(name.runs, 3)
     assert.strictEqual(hasName.runs, 2)
     assert.strictEqual(keys.runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes replacement of exposed objects inside a store', () => createRoot(dispose => {
+  test('dedupes replacement of exposed objects inside a store', () => testRoot(() => {
     const source = createMutable({
       user: { name: 'Ada' } as { name: string, active?: boolean },
       hiddenUser: { name: 'Hidden' },
@@ -457,11 +438,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(userName.runs, 2)
     assert.strictEqual(keys.runs, 1)
     assert.strictEqual(userKeys.runs, 2)
-
-    dispose()
   }))
 
-  test('dedupes objectFromAccessor source replacement and hidden object changes', () => createRoot(dispose => {
+  test('dedupes objectFromAccessor source replacement and hidden object changes', () => testRoot(() => {
     const first = createMutable({
       name: 'Ada' as string | undefined,
       hidden: 'first hidden' as string | undefined,
@@ -495,11 +474,9 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(name.value, 'Grace')
     assert.strictEqual(name.runs, 2)
     assert.strictEqual(keys.runs, 3)
-
-    dispose()
   }))
 
-  test('dedupes switchStore path, in, and ownKeys subscriptions across branches', () => createRoot(dispose => {
+  test('dedupes switchStore path, in, and ownKeys subscriptions across branches', () => testRoot(() => {
     const [selected, setSelected] = createSignal(false)
     const branch = createMutable({
       value: 100 as number | undefined,
@@ -551,7 +528,5 @@ describe('dedupeStore proxy integration', () => {
     assert.strictEqual(value.runs, 4)
     assert.strictEqual(hasValue.runs, 3)
     assert.strictEqual(keys.runs, 4)
-
-    dispose()
   }))
 })

@@ -1,4 +1,5 @@
-import { createRoot, createSignal } from 'solid-js'
+import { createSignal } from 'solid-js'
+import { testRoot } from '../solid-root'
 import { assert, test } from 'vitest'
 import { switchStore } from './switch-store'
 
@@ -7,7 +8,7 @@ type Equal<X, Y> =
   (<T>() => T extends Y ? 1 : 2) ? true : false
 const assertType = <T extends true>() => {}
 
-test('switchStore exposes the current branch through an object proxy', () => createRoot(dispose => {
+test('switchStore exposes the current branch through an object proxy', () => testRoot(dispose => {
   const [selected, setSelected] = createSignal(false)
   const store = switchStore(
     () => selected()
@@ -29,7 +30,7 @@ test('switchStore exposes the current branch through an object proxy', () => cre
   dispose()
 }))
 
-test('switchStore uses objectFromAccessor view semantics', () => createRoot(dispose => {
+test('switchStore uses objectFromAccessor view semantics', () => testRoot(dispose => {
   const [selected, setSelected] = createSignal(false)
   const selectedData = { nested: { count: 1 }}
   const store = switchStore(

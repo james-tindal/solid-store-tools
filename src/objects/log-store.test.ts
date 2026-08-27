@@ -1,4 +1,4 @@
-import { createRoot } from 'solid-js'
+import { testRoot } from '../solid-root'
 import { createMutable } from 'solid-js/store'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { assertGarbageCollected } from '../assert-garbage-collected'
@@ -26,17 +26,15 @@ const { expect: expectLogged, ...loggedEvents } = {
 describe('logStore', () => {
   beforeEach(loggedEvents.reset)
 
-  test('returns the passed store', () => createRoot(dispose => {
+  test('returns the passed store', () => testRoot(() => {
     const store = createMutable({
       name: 'Ada',
     })
 
     expect(logStore(store)).toBe(store)
-
-    dispose()
   }))
 
-  test('logs changes to top-level store keys', () => createRoot(dispose => {
+  test('logs changes to top-level store keys', () => testRoot(() => {
     const store = createMutable({
       name: 'Ada',
       count: 1,
@@ -61,11 +59,9 @@ describe('logStore', () => {
         value: 2,
       },
     )
-
-    dispose()
   }))
 
-  test('filters logged events', () => createRoot(dispose => {
+  test('filters logged events', () => testRoot(() => {
     const store = createMutable({
       visible: 'Ada',
       hidden: 'secret',
@@ -84,11 +80,9 @@ describe('logStore', () => {
         value: 'Grace',
       },
     )
-
-    dispose()
   }))
 
-  test('logs object replacement at the object path', () => createRoot(dispose => {
+  test('logs object replacement at the object path', () => testRoot(() => {
     const previousUser = {
       name: 'Ada',
       profile: {
@@ -117,11 +111,9 @@ describe('logStore', () => {
         value: nextUser,
       },
     )
-
-    dispose()
   }))
 
-  test('logs changes to nested store keys', () => createRoot(dispose => {
+  test('logs changes to nested store keys', () => testRoot(() => {
     const store = createMutable({
       user: {
         name: 'Ada',
@@ -143,11 +135,9 @@ describe('logStore', () => {
         value: false,
       },
     )
-
-    dispose()
   }))
 
-  test('logs array index changes', () => createRoot(dispose => {
+  test('logs array index changes', () => testRoot(() => {
     const store = createMutable({
       players: [
         { name: 'Ada', money: 100 },
@@ -168,11 +158,9 @@ describe('logStore', () => {
         value: 250,
       },
     )
-
-    dispose()
   }))
 
-  test('logs added keys', () => createRoot(dispose => {
+  test('logs added keys', () => testRoot(() => {
     const store = createMutable({
       user: {} as { name?: string },
     })
@@ -188,11 +176,9 @@ describe('logStore', () => {
         value: 'Ada',
       },
     )
-
-    dispose()
   }))
 
-  test('logs deleted keys', () => createRoot(dispose => {
+  test('logs deleted keys', () => testRoot(() => {
     const store = createMutable({
       user: {
         name: 'Ada' as string | undefined,
@@ -210,11 +196,9 @@ describe('logStore', () => {
         previous: 'Ada',
       },
     )
-
-    dispose()
   }))
 
-  test('logs symbol keys', () => createRoot(dispose => {
+  test('logs symbol keys', () => testRoot(() => {
     const symbolKey = Symbol('status')
     const store = createMutable({
       [symbolKey]: 'ready',
@@ -232,11 +216,9 @@ describe('logStore', () => {
         value: 'done',
       },
     )
-
-    dispose()
   }))
 
-  test('does not log the initial snapshot by default', () => createRoot(dispose => {
+  test('does not log the initial snapshot by default', () => testRoot(() => {
     const store = createMutable({
       name: 'Ada',
     })
@@ -244,69 +226,47 @@ describe('logStore', () => {
     logStore(store)
 
     expect(console.log).not.toHaveBeenCalled()
-
-    dispose()
   }))
 
-  test('releases replaced object branches', async () => {
-    let disposeRoot: (() => void) | undefined
-    const collected = createRoot(dispose => {
-      disposeRoot = dispose
-
-      let oldBranch: { nested: { value: string }} | undefined = {
-        nested: {
-          value: 'old',
-        },
-      }
-      const store = createMutable({
-        branch: oldBranch,
-      })
-      const collected = assertGarbageCollected(oldBranch)
-
-      logStore(store, () => false)
-
-      store.branch = {
-        nested: {
-          value: 'new',
-        },
-      }
-      oldBranch = undefined
-
-      return collected
+  test('releases replaced object branches', () => testRoot(() => {
+    let oldBranch: { nested: { value: string }} | undefined = {
+      nested: {
+        value: 'old',
+      },
+    }
+    const store = createMutable({
+      branch: oldBranch,
     })
+    const collected = assertGarbageCollected(oldBranch)
 
-    disposeRoot?.()
-    disposeRoot = undefined
+    logStore(store, () => false)
 
-    await collected
-  })
+    store.branch = {
+      nested: {
+        value: 'new',
+      },
+    }
+    oldBranch = undefined
 
-  test('releases deleted object branches', async () => {
-    let disposeRoot: (() => void) | undefined
-    const collected = createRoot(dispose => {
-      disposeRoot = dispose
+    return collected
+  }))
 
-      let oldBranch: { nested: { value: string }} | undefined = {
-        nested: {
-          value: 'old',
-        },
-      }
-      const store = createMutable({
-        branch: oldBranch as { nested: { value: string }} | undefined,
-      })
-      const collected = assertGarbageCollected(oldBranch)
-
-      logStore(store, () => false)
-
-      delete store.branch
-      oldBranch = undefined
-
-      return collected
+  test('releases deleted object branches', () => testRoot(() => {
+    let oldBranch: { nested: { value: string }} | undefined = {
+      nested: {
+        value: 'old',
+      },
+    }
+    const store = createMutable({
+      branch: oldBranch as { nested: { value: string }} | undefined,
     })
+    const collected = assertGarbageCollected(oldBranch)
 
-    disposeRoot?.()
-    disposeRoot = undefined
+    logStore(store, () => false)
 
-    await collected
-  })
+    delete store.branch
+    oldBranch = undefined
+
+    return collected
+  }))
 })
