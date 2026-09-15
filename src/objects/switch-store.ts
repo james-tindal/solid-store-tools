@@ -1,5 +1,6 @@
 import { createComputed, createRoot, createSignal, onCleanup, untrack } from 'solid-js'
 import { objectFromAccessor } from './object-from-accessor'
+import { UnmappedTypesUnion } from '@/objects/unmapped-types'
 
 type BranchKey = string | number | symbol
 
@@ -22,6 +23,7 @@ type StoreBranches<TSelection extends Selection> = {
 type BranchResult<T> =
   T extends (...args: any[]) => infer TResult ? TResult : T
 type MutableResult<T> =
+  T extends UnmappedTypesUnion ? T :
   T extends (...args: any[]) => any ? T :
   T extends (infer U)[]
     ? number extends T['length']
