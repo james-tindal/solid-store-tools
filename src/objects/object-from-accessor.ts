@@ -38,9 +38,12 @@ export function objectFromAccessor<T extends object>(accessor: () => T): T {
     }
   }
 
-  const target = typeof getObject() === 'function'
-    ? function () { }
-    : {}
+  const initialObject = getObject()
+  const target = Array.isArray(initialObject)
+    ? []
+    : typeof initialObject === 'function'
+      ? function () { }
+      : {}
 
   return new Proxy(target, {
     apply: (_target, thisArgument, argumentsList) =>
@@ -75,18 +78,29 @@ export function objectFromAccessor<T extends object>(accessor: () => T): T {
         return solidStoreMetadataGetOwnPropertyDescriptor(target, key)
 
       const targetDescriptor = Reflect.getOwnPropertyDescriptor(target, key)
-      if (targetDescriptor && !targetDescriptor.configurable)
-        return targetDescriptor
+      if (targetDescriptor && !targetDescriptor.configurable) {
+        const object = getObject()
+        if (Array.isArray(target) && key === 'length' && Array.isArray(object))
+          Reflect.set(target, 'length', object.length)
+
+        return Reflect.getOwnPropertyDescriptor(target, key)
+      }
 
       return descriptorFor(getObject(), key)
     },
 
-    has: (target, key) =>
-      key === $PROXY
+    has(target, key) {
+      if (key === $PROXY)
+        return true
+
+      if (isSolidStoreMetadataKey(key))
+        return solidStoreMetadataHas(target, key)
+
+      const targetDescriptor = Reflect.getOwnPropertyDescriptor(target, key)
+      return targetDescriptor && !targetDescriptor.configurable
         ? true
-        : isSolidStoreMetadataKey(key)
-          ? solidStoreMetadataHas(target, key)
-          : key in getObject(),
+        : key in getObject()
+    },
 
     ownKeys: target =>
       ownKeysWithLocalMetadata(Reflect.ownKeys(getObject()), target),

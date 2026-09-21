@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, expectTypeOf } from 'vitest'
+import { afterEach, describe, it, expect, expectTypeOf, assert } from 'vitest'
 import { createSignal } from 'solid-js'
 import { assertGarbageCollected } from '../assert-garbage-collected'
 import { objectFromAccessor } from './object-from-accessor'
@@ -23,6 +23,39 @@ describe('objectFromAccessor', () => {
         enabled: boolean
       }
     }>()
+  })
+
+  it('uses an array proxy target for an initial array', () => {
+    const current = [1, 2]
+    const proxy = objectFromAccessor(() => current)
+
+    expect(Array.isArray(proxy)).toBe(true)
+    expect([...proxy]).toEqual([1, 2])
+    expect(Object.getOwnPropertyDescriptor(proxy, 'length')).toEqual(
+      Object.getOwnPropertyDescriptor(current, 'length'),
+    )
+
+    proxy.push(3)
+
+    expect(current).toEqual([1, 2, 3])
+  })
+
+  it('reads from the latest array while retaining the initial array target', () => {
+    let current: number[] | { value: string } = [1, 2]
+    const proxy = objectFromAccessor(() => current)
+
+    current = [3, 4, 5]
+
+    assert(Array.isArray(proxy))
+    expect(proxy).toEqual([3, 4, 5])
+    expect(proxy.length).toBe(3)
+
+    current = { value: 'current' }
+
+    assert(Array.isArray(proxy))
+    expect((proxy as any).value).toBe('current')
+    expect(Object.keys(proxy)).toEqual(['value'])
+    expect('length' in proxy).toBe(true)
   })
 
   it('calls the accessor for each property read', () => {
