@@ -5,7 +5,7 @@ type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false
 
-const assertType = <T extends true>() => {}
+const assertType = <_T extends true>() => {}
 
 describe('pick()', () => {
   test('returns the selected key types', () => {

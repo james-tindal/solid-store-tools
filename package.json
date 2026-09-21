@@ -1,13 +1,54 @@
 {
-  "name": "solid-objects",
+  "name": "solid-store-tools",
   "version": "0.1.0",
+  "description": "Store utilities for SolidJS",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "license": "0BSD",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/james-tindal/solid-store-tools.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.15"
+  },
   "dependencies": {
+    "type-fest": "^5.9.0"
+  },
+  "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.5.1",
     "eslint": "^10.10.0",
     "jiti": "^2.7.0",
     "solid-js": "^1.9.15",
-    "type-fest": "^5.9.0",
+    "tsdown": "^0.23.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
     "vite-plugin-solid": "^2.11.14",

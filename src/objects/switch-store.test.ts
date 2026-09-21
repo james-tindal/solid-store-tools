@@ -6,7 +6,7 @@ import { switchStore } from './switch-store'
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false
-const assertType = <T extends true>() => {}
+const assertType = <_T extends true>() => {}
 
 test('switchStore exposes the current branch through an object proxy', () => testRoot(dispose => {
   const [selected, setSelected] = createSignal(false)

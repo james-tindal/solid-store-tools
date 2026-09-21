@@ -5,7 +5,7 @@ type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false
 
-const assertType = <T extends true>() => {}
+const assertType = <_T extends true>() => {}
 
 test('merge exposes merged entries as live getters with later values winning', () => {
   const base = { label: 'Base', value: 10_000 }
@@ -142,17 +142,17 @@ test('merge binds prototype methods to class instances with private fields', () 
 })
 
 test('merge types distinguish optional entries from required undefinedable entries', () => {
-  const optional = merge(
+  const _optional = merge(
     { value: 1 },
     {} as { value?: string },
   )
-  assertType<Equal<typeof optional.value, 1 | string | undefined>>()
+  assertType<Equal<typeof _optional.value, 1 | string | undefined>>()
 
-  const undefinedable = merge(
+  const _undefinedable = merge(
     { value: 1 },
     {} as { value: string | undefined },
   )
-  assertType<Equal<typeof undefinedable.value, string | undefined>>()
+  assertType<Equal<typeof _undefinedable.value, string | undefined>>()
 })
 
 test('merge defines properties on the winning source', () => {

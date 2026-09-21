@@ -4,7 +4,7 @@ import { Linter } from 'eslint'
 
 export default <Linter.Config[]>[{
   files: ['**/*.ts'],
-  ignores: ['node_modules/'],
+  ignores: ['node_modules/', 'dist/**'],
   languageOptions: {
     parser: tseslint.parser,
     parserOptions: {
