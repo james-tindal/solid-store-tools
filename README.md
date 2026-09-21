@@ -1,5 +1,9 @@
 # solid-store-tools
 
+[![npm version](https://img.shields.io/npm/v/solid-store-tools.svg)](https://www.npmjs.com/package/solid-store-tools)
+[![npm downloads](https://img.shields.io/npm/dm/solid-store-tools.svg)](https://www.npmjs.com/package/solid-store-tools)
+[![bundle size](https://img.shields.io/bundlejs/size/solid-store-tools)](https://bundlejs.com/?q=solid-store-tools)
+
 Derive stores from stores and signals. For [SolidJS](https://www.solidjs.com/).
 
 ## Install
