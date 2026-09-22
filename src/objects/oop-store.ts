@@ -23,7 +23,7 @@ function bindPrototypeMethods<T extends object>(
   const proto = Object.getPrototypeOf(source)
   for (const key of Object.getOwnPropertyNames(proto)) {
     if (key === 'constructor') continue
-    const value = proto[key]
+    const value = Object.getOwnPropertyDescriptor(proto, key)?.value
     if (typeof value === 'function')
       (receiver as any)[key] = (value as Function).bind(receiver)
   }
