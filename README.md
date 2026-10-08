@@ -266,7 +266,44 @@ logStore(state, event => event.path[0] !== 'internal')
 
 ## Object-oriented stores
 
-These helpers convert objects with methods into Solid stores. They bind methods to the mutable store so that method calls can update reactive properties.
+`MutableStore` makes class instances reactive during construction. The other helpers wrap existing objects and bind their methods to a mutable store.
+
+### `MutableStore`
+
+A class that extends `MutableStore` has a reactive `this` after `super()`. Constructor code can create reactive computations that read instance fields.
+
+`ClassStore` wraps the instance only after its constructor finishes. Computations inside that constructor read the original instance, not a reactive store.
+
+```ts
+import { createComputed } from 'solid-js'
+import { MutableStore } from 'solid-store-tools'
+
+class Counter extends MutableStore {
+  count = 0
+
+  constructor(initialCount: number) {
+    super()
+    this.count = initialCount
+    createComputed(() => console.log(this.doubled))
+  }
+
+  get doubled() { return this.count * 2 }
+
+  increment() {
+    this.count++
+  }
+}
+```
+
+Inside a component or reactive root:
+
+```ts
+const counter = new Counter(2) // logs 4
+counter.increment()           // logs 6
+counter.count = 5             // logs 10
+```
+
+Fields are writable through the instance. Getters derive values from reactive fields. The instance retains its class prototype.
 
 ### `FunctionStore` and `FactoryStore`
 
