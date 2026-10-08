@@ -2,6 +2,12 @@ import { createMutable, createStore } from 'solid-js/store'
 import { Simplify } from 'type-fest'
 import { omit } from './omit'
 
+export class MutableStore {
+  constructor() {
+    return createMutable(this)
+  }
+}
+
 function immutableStore<T extends object>(mutable: T) {
   const [immutable] = createStore(mutable)
   return immutable
