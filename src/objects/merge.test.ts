@@ -1,11 +1,94 @@
 import { assert, test } from 'vitest'
 import { merge } from './merge'
+import { pick } from './pick'
+import { omit } from './omit'
 
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false
 
 const assertType = <_T extends true>() => {}
+
+test('merge preserves source types inside generic functions', () => {
+  const view = <T extends { value: number }>(source: T): T => merge(source)
+  const selected = view({ value: 1 as const, extra: 'kept' as const })
+  assertType<Equal<typeof selected, { value: 1, extra: 'kept' }>>()
+  assert.strictEqual(selected.extra, 'kept')
+  if (false) {
+    // @ts-expect-error unknown fields are not exposed
+    selected.unknown
+  }
+})
+
+test('merge exposes known fields from polymorphic this and generic subclasses', () => {
+  class Box<T> {
+    constructor(readonly value: T) {}
+
+    get state(): { value: T, active: boolean } {
+      return merge(this, { active: true })
+    }
+  }
+  class NamedBox<T> extends Box<T> {
+    name = 'box'
+
+    get namedState(): { value: T, name: string, active: boolean } {
+      return merge(this, { active: true })
+    }
+  }
+
+  const selected = new NamedBox('contents' as const).namedState
+  assertType<Equal<typeof selected.value, 'contents'>>()
+  assert.strictEqual(selected.name, 'box')
+})
+
+test('merge preserves numeric and symbol key types with later values winning', () => {
+  const key = Symbol('selected')
+  const first: { readonly 0: string, [key]: number } = { 0: 'zero', [key]: 1 }
+  const second: { 0: number, extra: boolean } = { 0: 2, extra: true }
+  const selected = merge(first, second)
+  assertType<Equal<typeof selected[0], number>>()
+  assertType<Equal<typeof selected[typeof key], number>>()
+  assert.strictEqual(selected[0], 2)
+  if (false) {
+    // @ts-expect-error the winning source determines the numeric key type
+    selected[0] = 'wrong'
+    // @ts-expect-error unknown numeric keys are not exposed
+    selected[2]
+  }
+})
+
+test('merge preserves optional keys that do not overlap', () => {
+  const first: { value: number, optional?: string } = { value: 1 }
+  const selected = merge(first, { extra: true })
+  assertType<Equal<typeof selected, { value: number, optional?: string, extra: true }>>()
+  assert.strictEqual(selected.optional, undefined)
+})
+
+test('merge preserves correlated union fields through pick and omit composition', () => {
+  type Source =
+    | { kind: 'text', value: string, hidden: boolean }
+    | { kind: 'number', value: number, hidden: boolean }
+  const view = (source: Source) => merge(
+    pick(omit(source, ['hidden']), ['kind', 'value']),
+    { active: true },
+  )
+  const selected = view({ kind: 'text', value: 'hello', hidden: false })
+  assertType<Equal<typeof selected,
+    | { kind: 'text', value: string, active: true }
+    | { kind: 'number', value: number, active: true }
+  >>()
+  if (selected.kind === 'text') {
+    const value: string = selected.value
+    assert.strictEqual(value, 'hello')
+  } else {
+    const value: number = selected.value
+    assert.strictEqual(typeof value, 'number')
+  }
+  if (false) {
+    // @ts-expect-error composition does not expose omitted keys
+    selected.hidden
+  }
+})
 
 test('merge exposes merged entries as live getters with later values winning', () => {
   const base = { label: 'Base', value: 10_000 }

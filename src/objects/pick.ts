@@ -16,6 +16,6 @@ type PickResult<T, K extends PropertyKey> =
 export function pick<T extends object, const K extends readonly KeysOfUnion<T>[]>(object: T, keys: K): PickResult<T, K[number]>
 export function pick<T extends object, const K extends readonly (keyof T)[]>(object: T, keys: K): Pick<T, K[number]>
 export function pick<T extends object, const K extends readonly KeysOfUnion<T>[]>(object: T, keys: K): PickResult<T, K[number]> {
-  const selected = new Set<PropertyKey>(keys)
+  const selected = new Set<PropertyKey>(keys.map(key => typeof key === 'number' ? String(key) : key))
   return filterKeys(object, key => selected.has(key)) as unknown as PickResult<T, K[number]>
 }

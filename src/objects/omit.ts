@@ -12,8 +12,9 @@ type OmitResult<T, K extends PropertyKey> =
     ? ((...args: A) => R) & OmitUnion<T, K>
     : OmitUnion<T, K>
 
-export const omit = <T extends object, const K extends readonly KeysOfUnion<T>[]>
-  (object: T, keys: K): OmitResult<T, K[number]> => {
-    const omitted = new Set<PropertyKey>(keys)
-    return filterKeys(object, key => !omitted.has(key)) as unknown as OmitResult<T, K[number]>
-  }
+export function omit<T extends object, const K extends readonly KeysOfUnion<T>[]>(object: T, keys: K): OmitResult<T, K[number]>
+export function omit<T extends object, const K extends readonly (keyof T)[]>(object: T, keys: K): Omit<T, K[number]>
+export function omit<T extends object, const K extends readonly KeysOfUnion<T>[]>(object: T, keys: K): OmitResult<T, K[number]> {
+  const omitted = new Set<PropertyKey>(keys.map(key => typeof key === 'number' ? String(key) : key))
+  return filterKeys(object, key => !omitted.has(key)) as unknown as OmitResult<T, K[number]>
+}

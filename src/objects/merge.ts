@@ -29,11 +29,15 @@ type MergeValue<Left extends object, Right extends object, Key extends keyof Lef
       ? Left[Key]
       : never
 
+type RequiredKeys<T extends object> = Exclude<keyof T, OptionalKeys<T>>
+
 type MergeTwo<Left extends object, Right extends object> =
   Left extends unknown
     ? Right extends unknown
       ? Simplify<{
-          [Key in keyof Left | keyof Right]: MergeValue<Left, Right, Key>
+          [Key in RequiredKeys<Left> | RequiredKeys<Right>]: MergeValue<Left, Right, Key>
+        } & {
+          [Key in Exclude<keyof Left | keyof Right, RequiredKeys<Left> | RequiredKeys<Right>>]?: MergeValue<Left, Right, Key>
         }>
       : never
     : never

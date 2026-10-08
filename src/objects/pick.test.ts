@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { pick } from './pick'
+import { omit } from './omit'
+import { merge } from './merge'
 
 type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
@@ -8,6 +10,98 @@ type Equal<X, Y> =
 const assertType = <_T extends true>() => {}
 
 describe('pick()', () => {
+  test('selects known keys inside constrained generic functions', () => {
+    const select = <T extends { value: number, extra: string }>(source: T): Pick<T, 'value'> =>
+      pick(source, ['value'])
+
+    const source = { value: 1 as const, extra: 'hidden', another: true }
+    const selected = select(source)
+    assertType<Equal<typeof selected, { value: 1 }>>()
+    expect(selected.value).toBe(1)
+    if (false) {
+      // @ts-expect-error unselected keys are not exposed
+      selected.extra
+    }
+  })
+
+  test('preserves generic class fields and inherited fields', () => {
+    class Box<T> {
+      constructor(readonly value: T) {}
+
+      get state(): { readonly value: T } {
+        return pick(this, ['value'])
+      }
+    }
+    class NamedBox<T> extends Box<T> {
+      name = 'box'
+
+      get namedState(): { readonly value: T, name: string } {
+        return pick(this, ['value', 'name'])
+      }
+    }
+
+    const box = new NamedBox('contents' as const)
+    const selected = box.namedState
+    assertType<Equal<typeof selected.value, 'contents'>>()
+    expect(selected.name).toBe('box')
+    if (false) {
+      // @ts-expect-error inherited readonly fields stay readonly
+      selected.value = 'contents'
+    }
+  })
+
+  test('preserves numeric keys and optional modifiers', () => {
+    const source: { readonly 0: string, 1?: number, other: boolean } = { 0: 'zero', other: true }
+    const selected = pick(source, [0, 1])
+    assertType<Equal<typeof selected, { readonly 0: string, 1?: number }>>()
+    expect(selected[0]).toBe('zero')
+    if (false) {
+      // @ts-expect-error numeric readonly keys stay readonly
+      selected[0] = 'changed'
+      // @ts-expect-error unknown numeric keys are rejected
+      pick(source, [2])
+    }
+  })
+
+  test('preserves callable arguments, results, and selected properties', () => {
+    type Callable = ((value: number, suffix?: string) => string) & {
+      readonly label: string
+      hidden: boolean
+    }
+    const source: Callable = Object.assign(
+      (value: number, suffix = '') => `${value}${suffix}`,
+      { label: 'format', hidden: true },
+    )
+    const selected = pick(source, ['label'])
+    assertType<Equal<Parameters<typeof selected>, [value: number, suffix?: string]>>()
+    assertType<Equal<ReturnType<typeof selected>, string>>()
+    expect(selected(2, '!')).toBe('2!')
+    if (false) {
+      // @ts-expect-error callable arguments remain checked
+      selected('wrong')
+      // @ts-expect-error selected readonly properties stay readonly
+      selected.label = 'changed'
+      // @ts-expect-error unselected callable properties are absent
+      selected.hidden
+    }
+  })
+
+  test('preserves discriminant narrowing through merge and omit composition', () => {
+    type Source =
+      | { kind: 'text', value: string, hidden: boolean }
+      | { kind: 'number', value: number, hidden: boolean }
+    const select = (source: Source) => pick(omit(merge(source, { extra: true }), ['hidden']), ['kind', 'value'])
+    const selected = select({ kind: 'text', value: 'hello', hidden: false })
+    assertType<Equal<typeof selected, { kind: 'text', value: string } | { kind: 'number', value: number }>>()
+    if (selected.kind === 'text') {
+      const value: string = selected.value
+      expect(value).toBe('hello')
+    } else {
+      const value: number = selected.value
+      expect(value).toBeTypeOf('number')
+    }
+  })
+
   test('selects a known field from polymorphic this', () => {
     class Counter {
       value = 0
