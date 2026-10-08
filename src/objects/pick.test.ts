@@ -8,6 +8,22 @@ type Equal<X, Y> =
 const assertType = <_T extends true>() => {}
 
 describe('pick()', () => {
+  test('selects a known field from polymorphic this', () => {
+    class Counter {
+      value = 0
+
+      get state(): { value: number } {
+        return pick(this, ['value'])
+      }
+    }
+
+    const counter = new Counter()
+    const state = counter.state
+    expect(state.value).toBe(0)
+    counter.value = 1
+    expect(state.value).toBe(1)
+  })
+
   test('returns the selected key types', () => {
     const selectedSymbol = Symbol('selected')
     type Source = {
